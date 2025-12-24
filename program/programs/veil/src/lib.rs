@@ -4,6 +4,7 @@ pub mod error;
 pub mod events;
 pub mod instructions;
 pub mod state;
+pub mod utils;
 
 use anchor_lang::prelude::*;
 use ephemeral_rollups_sdk::anchor::ephemeral;
@@ -64,13 +65,61 @@ pub mod veil {
 
     // scheduling ixs
 
-    pub fn create_schedule(ctx: Context<CreateSchedule>) -> Result<()> {
-        ctx.accounts.create_scehdule()
+    pub fn create_schedule(
+        ctx: Context<CreateSchedule>,
+        schedule_id: [u8; 32],
+        interval_secs: u64,
+        reserved_amount: u64,
+        per_execution_amount: u64,
+        merkle_root: [u8; 32],
+        total_recipients: u16,
+        er_job_id: [u8; 32],
+    ) -> Result<()> {
+        ctx.accounts.create_schedule(
+            schedule_id,
+            interval_secs,
+            reserved_amount,
+            per_execution_amount,
+            merkle_root,
+            total_recipients,
+            er_job_id,
+        )
     }
+
     pub fn cancel_schedule(ctx: Context<CancelSchedule>) -> Result<()> {
         ctx.accounts.cancel_schedule()
     }
-    pub fn execute_settlement(ctx: Context<ExecuteSettlement>) -> Result<()> {
-        ctx.accounts.execute_settlement()
+
+    pub fn pause_schedule(ctx: Context<PauseSchedule>, pause: bool) -> Result<()> {
+        ctx.accounts.pause_schedule(pause)
+    }
+
+    pub fn delegate_schedule(ctx: Context<DelegateSchedule>, schedule_id: [u8; 32]) -> Result<()> {
+        ctx.accounts.delegate_schedule(schedule_id)
+    }
+
+    pub fn undelegate_schedule(
+        ctx: Context<UndelegateSchedule>,
+        schedule_id: [u8; 32],
+    ) -> Result<()> {
+        ctx.accounts.undelegate_schedule(schedule_id)
+    }
+
+    pub fn claim_payment(
+        ctx: Context<ClaimPayment>,
+        schedule_id: [u8; 32],
+        recipient: Pubkey,
+        amount: u64,
+        leaf_index: u16,
+        proof: Vec<[u8; 32]>,
+    ) -> Result<()> {
+        ctx.accounts
+            .claim_payment(schedule_id, recipient, amount, leaf_index, proof)
+    }
+
+    // er ixs
+
+    pub fn commit(ctx: Context<Commit>) -> Result<()> {
+        ctx.accounts.commit()
     }
 }

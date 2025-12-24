@@ -31,4 +31,43 @@ pub enum VeilProgramError {
 
     #[msg("Vault already initialized")]
     VaultAlreadyInitialized,
+
+    #[msg("Schedule is not active")]
+    ScheduleNotActive,
+
+    #[msg("Schedule is already cancelled")]
+    ScheduleAlreadyCancelled,
+
+    #[msg("Schedule is already paused")]
+    ScheduleAlreadyPaused,
+
+    #[msg("Schedule is not paused")]
+    ScheduleNotPaused,
+
+    #[msg("Invalid schedule ID")]
+    InvalidScheduleId,
+
+    #[msg("Invalid recipients hash")]
+    InvalidRecipientsHash,
+
+    #[msg("Invalid amounts hash")]
+    InvalidAmountsHash,
+
+    #[msg("Execution too early - next execution time not reached")]
+    ExecutionTooEarly,
+
+    #[msg("Replay detected - batch ID must be greater than last executed")]
+    ReplayDetected,
+
+    #[msg("Recipient count mismatch")]
+    RecipientCountMismatch,
+
+    #[msg("Invalid Merkle proof")]
+    InvalidMerkleProof,
+
+    #[msg("Recipient already paid")]
+    AlreadyPaid,
+
+    #[msg("Invalid leaf index")]
+    InvalidLeafIndex,
 }

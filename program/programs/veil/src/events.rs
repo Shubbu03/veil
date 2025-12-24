@@ -65,3 +65,61 @@ pub struct VaultUndelegated {
     pub er_authority: Pubkey,
     pub timestamp: i64,
 }
+
+#[event]
+pub struct ScheduleCreated {
+    pub employer: Pubkey,
+    pub vault: Pubkey,
+    pub schedule: Pubkey,
+    pub reserved_amount: u64,
+    pub interval_secs: u64,
+    pub next_execution: i64,
+}
+
+#[event]
+pub struct ScheduleCancelled {
+    pub employer: Pubkey,
+    pub schedule: Pubkey,
+    pub returned_amount: u64,
+}
+
+#[event]
+pub struct SchedulePaused {
+    pub employer: Pubkey,
+    pub schedule: Pubkey,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct ScheduleResumed {
+    pub employer: Pubkey,
+    pub schedule: Pubkey,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct ScheduleDelegated {
+    pub schedule: Pubkey,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct ScheduleUndelegated {
+    pub schedule: Pubkey,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct PaymentClaimed {
+    pub schedule: Pubkey,
+    pub recipient: Pubkey,
+    pub amount: u64,
+    pub leaf_index: u16,
+    pub paid_count: u16,
+}
+
+#[event]
+pub struct StateCommitted {
+    pub account: Pubkey,
+    pub timestamp: i64,
+}
