@@ -93,6 +93,25 @@ export function verifyProof(
     return computed.equals(root);
 }
 
+export function getProofForRecipient(
+    recipients: Recipient[],
+    recipientIndex: number
+): MerkleProof | null {
+    if (recipientIndex < 0 || recipientIndex >= recipients.length) {
+        return null;
+    }
+
+    const { proofs } = buildMerkleTree(recipients);
+    return proofs[recipientIndex] || null;
+}
+
+export function findRecipientIndex(
+    recipients: Recipient[],
+    address: PublicKey
+): number {
+    return recipients.findIndex((r) => r.address.equals(address));
+}
+
 function nextPowerOf2(n: number): number {
     let p = 1;
     while (p < n) p *= 2;

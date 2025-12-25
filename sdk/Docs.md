@@ -204,6 +204,66 @@ const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
 
 ---
 
+## Claim Payment
+
+### Claim Payment (For Coordinator/ER Authority)
+
+Claim a payment on behalf of a recipient. This requires ER authority to sign.
+
+```typescript
+import { getProofForRecipient, findRecipientIndex } from "@veil/sdk";
+
+// Get proof for recipient
+const recipients = [
+  { address: recipientPubkey, amount: 100_000n },
+  // ... other recipients
+];
+const recipientIndex = findRecipientIndex(recipients, recipientPubkey);
+const proof = getProofForRecipient(recipients, recipientIndex);
+
+if (proof) {
+  const signature = await client.claimPayment(
+    erAuthorityWallet, // ER authority wallet (must sign)
+    vaultEmployerPubkey, // Employer who owns the vault
+    scheduleId, // Schedule ID
+    recipientPubkey, // Recipient address
+    new BN(100_000), // Amount
+    proof.leafIndex, // Leaf index
+    proof.proof.map((p) => Array.from(p)), // Convert proof to number[][]
+    tokenMint
+  );
+}
+```
+
+### Get Proof for Recipient
+
+Helper to get merkle proof for a specific recipient:
+
+```typescript
+import { getProofForRecipient, findRecipientIndex } from "@veil/sdk";
+
+const recipients = [
+  { address: pubkey1, amount: 100_000n },
+  { address: pubkey2, amount: 200_000n },
+];
+
+// Find index by address
+const index = findRecipientIndex(recipients, pubkey1);
+
+// Get proof
+const proof = getProofForRecipient(recipients, index);
+
+if (proof) {
+  console.log("Leaf Index:", proof.leafIndex);
+  console.log(
+    "Proof:",
+    proof.proof.map((p) => Array.from(p))
+  );
+}
+```
+
+---
+
 ## Merkle Tree
 
 Build and verify merkle proofs for recipient lists.

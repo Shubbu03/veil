@@ -1,11 +1,12 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import { AnchorProvider, Program, Wallet, BN, Idl } from "@coral-xyz/anchor";
 import { getAssociatedTokenAddress } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
-    PROGRAM_ID,
     getConfigPda,
     getVaultPda,
     getVaultAtaPda,
+    getSchedulePda,
 } from "./pda";
 import { buildMerkleTree, Recipient } from "./merkle";
 import {
@@ -176,6 +177,44 @@ export class VeilClient {
         } catch {
             return null;
         }
+    }
+
+    async claimPayment(
+        erAuthority: Wallet,
+        vaultEmployer: PublicKey,
+        scheduleId: number[],
+        recipient: PublicKey,
+        amount: BN,
+        leafIndex: number,
+        proof: number[][],
+        tokenMint: PublicKey
+    ): Promise<string> {
+        const [configPda] = getConfigPda();
+        const [vaultPda] = getVaultPda(vaultEmployer);
+        const [vaultAtaPda] = getVaultAtaPda(vaultPda);
+        const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
+        const recipientAta = await getAssociatedTokenAddress(tokenMint, recipient);
+
+        return await this.program.methods
+            .claimPayment(
+                scheduleId,
+                recipient,
+                amount,
+                leafIndex,
+                proof
+            )
+            .accountsPartial({
+                erAuthority: erAuthority.publicKey,
+                config: configPda,
+                vault: vaultPda,
+                vaultAta: vaultAtaPda,
+                schedule: schedulePda,
+                recipientAta,
+                tokenMint,
+                tokenProgram: TOKEN_PROGRAM_ID,
+            })
+            .signers([erAuthority.payer])
+            .rpc();
     }
 }
 
