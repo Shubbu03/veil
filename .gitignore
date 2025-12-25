@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Anchor / Solana
+.anchor/
+target/
+test-ledger/
+**/*.rs.bk
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Keypairs
+*-keypair.json
+keypair.json
+!program/target/deploy/veil-keypair.json
