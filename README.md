@@ -1,4 +1,4 @@
-# Veil - Private Payments on Solana
+# Veil
 
 Private payment protocol for Solana using MagicBlock Ephemeral Rollups (ER) for privacy-preserving scheduled payments.
 
