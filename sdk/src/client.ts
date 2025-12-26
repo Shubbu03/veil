@@ -179,6 +179,22 @@ export class VeilClient {
         }
     }
 
+    async initConfig(
+        governance: PublicKey,
+        erAuthority: PublicKey,
+        allowedMint: PublicKey,
+        maxRecipients: number
+    ): Promise<string> {
+        const [configPda] = getConfigPda();
+
+        return await this.program.methods
+            .initConfig(governance, erAuthority, allowedMint, maxRecipients)
+            .accountsPartial({
+                admin: this.wallet.publicKey,
+            })
+            .rpc();
+    }
+
     async claimPayment(
         erAuthority: Wallet,
         vaultEmployer: PublicKey,
