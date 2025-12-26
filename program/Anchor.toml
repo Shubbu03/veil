@@ -12,7 +12,7 @@ veil = "6fnyZCuDriRnak18b4mrg9y2Z3gy2P9QByqVYSauYWX8"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
