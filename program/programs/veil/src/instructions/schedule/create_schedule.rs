@@ -57,6 +57,15 @@ impl<'info> CreateSchedule<'info> {
         );
         require!(total_recipients > 0, VeilProgramError::InvalidMaxRecipients);
         require!(
+            total_recipients <= self.config.max_recipients,
+            VeilProgramError::InvalidMaxRecipients
+        );
+        // Bitmap capacity: 128 bytes * 8 bits = 1024 max recipients
+        require!(
+            total_recipients <= 1024,
+            VeilProgramError::InvalidMaxRecipients
+        );
+        require!(
             reserved_amount <= self.vault.available,
             VeilProgramError::InsufficientFunds
         );
