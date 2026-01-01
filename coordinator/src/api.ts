@@ -48,7 +48,7 @@ router.post("/schedules", async (req: Request, res: Response) => {
             createdAt: Date.now(),
         };
 
-        recipientStore.set(schedulePda, data);
+        await recipientStore.set(schedulePda, data);
 
         console.log(`✅ Registered schedule ${schedulePda} with ${recipients.length} recipients`);
 
@@ -66,30 +66,54 @@ router.post("/schedules", async (req: Request, res: Response) => {
 });
 
 // Get recipient data for a schedule
-router.get("/schedules/:schedulePda", (req: Request, res: Response) => {
-    const { schedulePda } = req.params;
-    const data = recipientStore.get(schedulePda);
+router.get("/schedules/:schedulePda", async (req: Request, res: Response) => {
+    try {
+        const { schedulePda } = req.params;
+        const data = await recipientStore.get(schedulePda);
 
-    if (!data) {
-        return res.status(404).json({ error: "Schedule not found" });
+        if (!data) {
+            return res.status(404).json({ error: "Schedule not found" });
+        }
+
+        res.json({
+            schedulePda: data.schedulePda,
+            scheduleId: data.scheduleId,
+            vaultEmployer: data.vaultEmployer,
+            recipientCount: data.recipients.length,
+            merkleRoot: data.merkleRoot,
+            createdAt: data.createdAt,
+        });
+    } catch (error: any) {
+        console.error("Error fetching schedule:", error);
+        res.status(500).json({
+            error: error.message || "Failed to fetch schedule",
+        });
     }
-
-    res.json({
-        schedulePda: data.schedulePda,
-        scheduleId: data.scheduleId,
-        vaultEmployer: data.vaultEmployer,
-        recipientCount: data.recipients.length,
-        merkleRoot: data.merkleRoot,
-        createdAt: data.createdAt,
-    });
 });
 
-router.get("/health", (_req: Request, res: Response) => {
-    res.json({
-        status: "ok",
-        timestamp: Date.now(),
-        schedulesRegistered: recipientStore.getAll().length,
-    });
+router.get("/health", async (_req: Request, res: Response) => {
+    try {
+        const { db } = await import("./db");
+        const { sql } = await import("drizzle-orm");
+        await db.execute(sql`SELECT 1`);
+
+        const allSchedules = await recipientStore.getAll();
+        res.json({
+            status: "healthy",
+            database: "connected",
+            timestamp: Date.now(),
+            schedulesRegistered: allSchedules.length,
+        });
+    } catch (error: any) {
+        console.error("Error in health check:", error);
+        const isDbError = error.message?.includes("connection") || error.message?.includes("timeout");
+        res.status(isDbError ? 503 : 500).json({
+            status: "unhealthy",
+            database: "disconnected",
+            timestamp: Date.now(),
+            error: error.message || "Health check failed",
+        });
+    }
 });
 
 export default router;

@@ -32,7 +32,31 @@ ER_VALIDATOR=MUS3hc9TCw4cGC12vHNoYcCGzJG1txjgQLZWVoeNHNd
 ER_AUTHORITY_KEYPAIR_PATH=./er-authority-keypair.json
 PORT=3001
 POLL_INTERVAL_MS=60000
+
+# Database (PostgreSQL)
+DATABASE_URL=postgresql://user:password@localhost:5432/veil_coordinator
+DB_POOL_MAX=10
 ```
+
+### Database Setup
+
+1. Create PostgreSQL database:
+
+   ```bash
+   createdb veil_coordinator
+   ```
+
+2. Generate and run migrations:
+
+   ```bash
+   yarn db:generate    # Generate migration files
+   yarn db:migrate # Apply to database
+   ```
+
+3. (Optional) Use Drizzle Studio to inspect database:
+   ```bash
+   yarn db:studio
+   ```
 
 **Available ER Validators:**
 
@@ -110,7 +134,7 @@ GET /api/health
 - [x] ER transaction submission implemented
 - [x] Claim execution on ER
 - [x] Commit state to Solana
+- [x] Database for schedule storage (PostgreSQL with Drizzle ORM)
 - [ ] Retry logic for failed claims (partial - continues on error)
-- [ ] Database for job tracking (currently in-memory)
 - [ ] Monitoring/logging (basic console logs)
 - [ ] Rate limiting

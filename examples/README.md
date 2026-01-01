@@ -19,6 +19,7 @@ These examples walk you through the complete flow of using Veil:
 3. **Wallet** with SOL for transaction fees
 4. **USDC Devnet tokens** (for deposits)
 5. **Coordinator running** (for examples 4 and 5)
+6. **PostgreSQL database** (required for coordinator - see coordinator README for setup)
 
 ## Setup
 
@@ -135,8 +136,9 @@ ts-node 04-register-with-coordinator.ts \
 
 **Prerequisites:**
 
-- Coordinator must be running (`cd coordinator && yarn dev`)
+- Coordinator must be running with PostgreSQL configured (`cd coordinator && yarn dev`)
 - Schedule must exist on-chain
+- Database migrations must be run (see coordinator README)
 
 ---
 
@@ -158,9 +160,10 @@ ts-node 05-full-flow.ts
 
 **Prerequisites:**
 
-- Coordinator must be running
+- Coordinator must be running with PostgreSQL configured
 - Wallet must have SOL for fees
 - USDC tokens (or modify script)
+- Database migrations must be run (see coordinator README)
 
 ---
 
@@ -188,8 +191,22 @@ yarn 04-register "SchedulePDA" "[scheduleId]" "EmployerPubkey"
 
 ### Step 1: Start Coordinator
 
+**Important:** The coordinator now requires PostgreSQL. Set it up first:
+
 ```bash
 cd ../coordinator
+
+# Create database (if not exists)
+createdb veil_coordinator
+
+# Configure database in .env file
+# Add: DATABASE_URL=postgresql://user:password@localhost:5432/veil_coordinator
+
+# Run migrations (if not already done)
+yarn db:generate
+yarn db:migrate
+
+# Start coordinator
 yarn dev
 ```
 
@@ -238,6 +255,26 @@ Make sure coordinator is running:
 
 ```bash
 cd coordinator && yarn dev
+```
+
+### "Database connection error" or "DATABASE_URL not set"
+
+The coordinator requires PostgreSQL. Set it up:
+
+```bash
+# Check PostgreSQL is running
+pg_isready
+
+# Create database (if not exists)
+createdb veil_coordinator
+
+# Verify .env has DATABASE_URL in coordinator directory
+# DATABASE_URL=postgresql://user:password@localhost:5432/veil_coordinator
+
+# Run migrations if not done
+cd coordinator
+yarn db:generate
+yarn db:migrate
 ```
 
 ### "Schedule not found"

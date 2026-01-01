@@ -1,26 +1,25 @@
 import { ScheduleRecipientData } from "./types";
+import { scheduleRepository } from "./db/repository";
 
 class RecipientStore {
-    private data: Map<string, ScheduleRecipientData> = new Map();
-
-    set(schedulePda: string, data: ScheduleRecipientData): void {
-        this.data.set(schedulePda, data);
+    async set(schedulePda: string, data: ScheduleRecipientData): Promise<void> {
+        return scheduleRepository.set(schedulePda, data);
     }
 
-    get(schedulePda: string): ScheduleRecipientData | undefined {
-        return this.data.get(schedulePda);
+    async get(schedulePda: string): Promise<ScheduleRecipientData | undefined> {
+        return scheduleRepository.get(schedulePda);
     }
 
-    has(schedulePda: string): boolean {
-        return this.data.has(schedulePda);
+    async has(schedulePda: string): Promise<boolean> {
+        return scheduleRepository.has(schedulePda);
     }
 
-    delete(schedulePda: string): boolean {
-        return this.data.delete(schedulePda);
+    async delete(schedulePda: string): Promise<boolean> {
+        return scheduleRepository.delete(schedulePda);
     }
 
-    getAll(): ScheduleRecipientData[] {
-        return Array.from(this.data.values());
+    async getAll(): Promise<ScheduleRecipientData[]> {
+        return scheduleRepository.getAll();
     }
 }
 
