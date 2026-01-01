@@ -45,14 +45,21 @@ async function pollDueSchedules(connection: Connection, erAuthority: Wallet) {
 
     const now = Math.floor(Date.now() / 1000);
 
-    const dueSchedules = schedules.filter((acc: any) => {
+    const schedulesWithData: any[] = [];
+    for (const acc of schedules) {
         const schedule = acc.account;
-        const hasRecipientData = recipientStore.has(acc.publicKey.toString());
         const isDue = schedule.nextExecution.toNumber() <= now;
         const isActive = "active" in schedule.status;
 
-        return hasRecipientData && isDue && isActive;
-    });
+        if (isDue && isActive) {
+            const hasRecipientData = await recipientStore.has(acc.publicKey.toString());
+            if (hasRecipientData) {
+                schedulesWithData.push(acc);
+            }
+        }
+    }
+
+    const dueSchedules = schedulesWithData;
 
     if (dueSchedules.length === 0) {
         return;
@@ -65,7 +72,7 @@ async function pollDueSchedules(connection: Connection, erAuthority: Wallet) {
         const schedule = scheduleAccount.account;
 
         try {
-            const recipientData = recipientStore.get(schedulePda.toString());
+            const recipientData = await recipientStore.get(schedulePda.toString());
             if (!recipientData) {
                 console.warn(`⚠️  No recipient data for schedule ${schedulePda.toString()}`);
                 continue;
