@@ -50,8 +50,6 @@ router.post("/schedules", async (req: Request, res: Response) => {
 
         await recipientStore.set(schedulePda, data);
 
-        console.log(`✅ Registered schedule ${schedulePda} with ${recipients.length} recipients`);
-
         res.json({
             success: true,
             schedulePda,

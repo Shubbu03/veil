@@ -5,11 +5,8 @@ import * as path from "path";
 import IDL from "../target/idl/veil.json";
 
 async function main() {
-    console.log("🚀 Initializing Veil program config on devnet...\n");
-
     // Setup connection
     const connection = new Connection("https://api.devnet.solana.com", "confirmed");
-    console.log("✅ Connected to devnet");
 
     // Load admin keypair (default Solana wallet)
     const adminKeypairPath = process.env.ADMIN_KEYPAIR_PATH ||
@@ -23,7 +20,6 @@ async function main() {
         Uint8Array.from(JSON.parse(fs.readFileSync(adminKeypairPath, "utf-8")))
     );
     const adminWallet = new Wallet(adminKeypair);
-    console.log(`✅ Loaded admin wallet: ${adminKeypair.publicKey.toString()}`);
 
     // Load ER authority keypair
     const erAuthorityPath = path.resolve(__dirname, "../../er-authority-keypair.json");
@@ -34,11 +30,9 @@ async function main() {
     const erAuthorityKeypair = Keypair.fromSecretKey(
         Uint8Array.from(JSON.parse(fs.readFileSync(erAuthorityPath, "utf-8")))
     );
-    console.log(`✅ Loaded ER authority: ${erAuthorityKeypair.publicKey.toString()}`);
 
     // Devnet USDC mint
     const USDC_DEVNET = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
-    console.log(`✅ Using USDC devnet mint: ${USDC_DEVNET.toString()}`);
 
     // Setup Anchor provider and program
     const provider = new AnchorProvider(connection, adminWallet, {
@@ -53,37 +47,28 @@ async function main() {
             program.programId
         )[0];
 
-        const existingConfig = await (program.account as any).veilConfig.fetch(configPda);
-        console.log("\n⚠️  Config already exists!");
-        console.log("Governance:", existingConfig.governance.toString());
-        console.log("ER Authority:", existingConfig.erAuthority.toString());
-        console.log("Allowed Mint:", existingConfig.allowedMint.toString());
-        console.log("Max Recipients:", existingConfig.maxRecipients.toString());
-        console.log("Paused:", existingConfig.paused);
+        await (program.account as any).veilConfig.fetch(configPda);
         return;
     } catch (e) {
         // Config doesn't exist, proceed with initialization
     }
 
     // Initialize config
-    console.log("\n📝 Initializing config...");
     const maxRecipients = 1000;
+    const batchTimeoutSecs = 604800; // 7 days (default)
 
     const tx = await program.methods
         .initConfig(
             adminKeypair.publicKey,  // governance
             erAuthorityKeypair.publicKey,  // er_authority
             USDC_DEVNET,  // allowed_mint
-            maxRecipients  // max_recipients
+            maxRecipients,  // max_recipients
+            batchTimeoutSecs  // batch_timeout_secs
         )
         .accountsPartial({
             admin: adminKeypair.publicKey,
         })
         .rpc();
-
-    console.log("\n✅ Config initialized successfully!");
-    console.log("Transaction signature:", tx);
-    console.log(`View on explorer: https://explorer.solana.com/tx/${tx}?cluster=devnet`);
 
     // Verify config
     const configPda = PublicKey.findProgramAddressSync(
@@ -91,17 +76,11 @@ async function main() {
         program.programId
     )[0];
 
-    const config = await (program.account as any).veilConfig.fetch(configPda);
-    console.log("\n📋 Config details:");
-    console.log("  Governance:", config.governance.toString());
-    console.log("  ER Authority:", config.erAuthority.toString());
-    console.log("  Allowed Mint:", config.allowedMint.toString());
-    console.log("  Max Recipients:", config.maxRecipients.toString());
-    console.log("  Paused:", config.paused);
+    await (program.account as any).veilConfig.fetch(configPda);
 }
 
 main().catch((error) => {
-    console.error("❌ Error:", error);
+    console.error("Error:", error);
     process.exit(1);
 });
 

@@ -70,4 +70,7 @@ pub enum VeilProgramError {
 
     #[msg("Invalid leaf index")]
     InvalidLeafIndex,
+
+    #[msg("Invalid batch timeout - must be between 1 hour and 30 days")]
+    InvalidBatchTimeout,
 }

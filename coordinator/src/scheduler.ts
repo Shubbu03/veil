@@ -10,13 +10,13 @@ import * as path from "path";
 let schedulerInterval: NodeJS.Timeout | null = null;
 
 export function startScheduler(connection: Connection, erAuthority: Wallet) {
-    console.log(`⏰ Starting scheduler (polling every ${config.pollIntervalMs}ms)`);
+    console.log(`Starting scheduler (polling every ${config.pollIntervalMs}ms)`);
 
     const poll = async () => {
         try {
             await pollDueSchedules(connection, erAuthority);
         } catch (error) {
-            console.error("❌ Scheduler error:", error);
+            console.error("Scheduler error:", error);
         }
     };
 
@@ -65,7 +65,7 @@ async function pollDueSchedules(connection: Connection, erAuthority: Wallet) {
         return;
     }
 
-    console.log(`📋 Found ${dueSchedules.length} schedules due for execution`);
+    console.log(`Found ${dueSchedules.length} schedules due for execution`);
 
     for (const scheduleAccount of dueSchedules) {
         const schedulePda = scheduleAccount.publicKey;
@@ -74,7 +74,7 @@ async function pollDueSchedules(connection: Connection, erAuthority: Wallet) {
         try {
             const recipientData = await recipientStore.get(schedulePda.toString());
             if (!recipientData) {
-                console.warn(`⚠️  No recipient data for schedule ${schedulePda.toString()}`);
+                console.warn(`No recipient data for schedule ${schedulePda.toString()}`);
                 continue;
             }
 
@@ -87,7 +87,7 @@ async function pollDueSchedules(connection: Connection, erAuthority: Wallet) {
                 recipientData
             );
         } catch (error) {
-            console.error(`❌ Failed to execute schedule ${schedulePda.toString()}:`, error);
+            console.error(`Failed to execute schedule ${schedulePda.toString()}:`, error);
         }
     }
 }

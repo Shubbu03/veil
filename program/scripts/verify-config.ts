@@ -5,7 +5,7 @@ import IDL from "../target/idl/veil.json";
 import { Keypair } from "@solana/web3.js";
 
 async function main() {
-    console.log("🔍 Verifying Veil program config on devnet...\n");
+    console.log("Verifying Veil program config on devnet...\n");
 
     const connection = new Connection("https://api.devnet.solana.com", "confirmed");
     const adminKeypair = Keypair.fromSecretKey(
@@ -23,17 +23,15 @@ async function main() {
 
     try {
         const config = await (program.account as any).veilConfig.fetch(configPda);
-        console.log("✅ Config found on-chain!");
-        console.log("\n📋 Config details:");
-        console.log("  Config PDA:", configPda.toString());
-        console.log("  Governance:", config.governance.toString());
-        console.log("  ER Authority:", config.erAuthority.toString());
-        console.log("  Allowed Mint:", config.allowedMint.toString());
-        console.log("  Max Recipients:", config.maxRecipients.toString());
-        console.log("  Paused:", config.paused);
-        console.log("\n✅ Setup verified successfully!");
+        console.log("Config found on-chain");
+        console.log("Config PDA:", configPda.toString());
+        console.log("Governance:", config.governance.toString());
+        console.log("ER Authority:", config.erAuthority.toString());
+        console.log("Allowed Mint:", config.allowedMint.toString());
+        console.log("Max Recipients:", config.maxRecipients.toString());
+        console.log("Paused:", config.paused);
     } catch (error) {
-        console.error("❌ Config not found:", error);
+        console.error("Config not found:", error);
         process.exit(1);
     }
 }

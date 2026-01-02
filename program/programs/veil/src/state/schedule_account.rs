@@ -16,6 +16,7 @@ pub struct ScheduleAccount {
     pub paid_count: u16,        // Number of recipients paid in current batch
     pub paid_bitmap: [u8; 128], // Bitmap tracking paid recipients (1024 max, 1 bit per recipient)
     pub last_executed_batch: u64, // replay protection
+    pub batch_start_time: u64,  // When current batch started (0 if not started)
     pub bump: u8,
 }
 

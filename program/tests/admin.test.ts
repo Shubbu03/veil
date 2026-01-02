@@ -1,4 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
+import { BN } from "@coral-xyz/anchor";
 import { expect } from "chai";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import {
@@ -41,7 +42,8 @@ describe("Admin Instructions", () => {
                         ctx.governance.publicKey,
                         ctx.erAuthority.publicKey,
                         ctx.allowedMint,
-                        0
+                        0,
+                        new BN(604800)
                     )
                     .accountsPartial({ admin: ctx.admin.publicKey })
                     .rpc();
@@ -59,7 +61,8 @@ describe("Admin Instructions", () => {
                         ctx.governance.publicKey,
                         PublicKey.default,
                         ctx.allowedMint,
-                        100
+                        100,
+                        new BN(604800)
                     )
                     .accountsPartial({ admin: ctx.admin.publicKey })
                     .rpc();
@@ -77,7 +80,8 @@ describe("Admin Instructions", () => {
                         ctx.governance.publicKey,
                         ctx.erAuthority.publicKey,
                         PublicKey.default,
-                        100
+                        100,
+                        new BN(604800)
                     )
                     .accountsPartial({ admin: ctx.admin.publicKey })
                     .rpc();
@@ -85,6 +89,44 @@ describe("Admin Instructions", () => {
             } catch (err: any) {
                 const errorCode = getErrorCode(err);
                 expect(errorCode).to.equal("InvalidErAuthority");
+            }
+        });
+
+        it("Should fail with invalid batch_timeout_secs (too small)", async () => {
+            try {
+                await ctx.program.methods
+                    .initConfig(
+                        ctx.governance.publicKey,
+                        ctx.erAuthority.publicKey,
+                        ctx.allowedMint,
+                        100,
+                        new BN(3600 - 1) // Less than 1 hour
+                    )
+                    .accountsPartial({ admin: ctx.admin.publicKey })
+                    .rpc();
+                expect.fail("Should have failed");
+            } catch (err: any) {
+                const errorCode = getErrorCode(err);
+                expect(errorCode).to.equal("InvalidBatchTimeout");
+            }
+        });
+
+        it("Should fail with invalid batch_timeout_secs (too large)", async () => {
+            try {
+                await ctx.program.methods
+                    .initConfig(
+                        ctx.governance.publicKey,
+                        ctx.erAuthority.publicKey,
+                        ctx.allowedMint,
+                        100,
+                        new BN(2592000 + 1) // More than 30 days
+                    )
+                    .accountsPartial({ admin: ctx.admin.publicKey })
+                    .rpc();
+                expect.fail("Should have failed");
+            } catch (err: any) {
+                const errorCode = getErrorCode(err);
+                expect(errorCode).to.equal("InvalidBatchTimeout");
             }
         });
 
@@ -102,7 +144,8 @@ describe("Admin Instructions", () => {
                     ctx.governance.publicKey,
                     ctx.erAuthority.publicKey,
                     ctx.allowedMint,
-                    maxRecipients
+                    maxRecipients,
+                    new BN(604800)
                 )
                 .accountsPartial({ admin: ctx.admin.publicKey })
                 .rpc();
@@ -116,6 +159,7 @@ describe("Admin Instructions", () => {
             );
             expect(config.allowedMint.toString()).to.equal(ctx.allowedMint.toString());
             expect(config.maxRecipients).to.equal(maxRecipients);
+            expect(config.batchTimeoutSecs.toNumber()).to.equal(604800);
             expect(config.paused).to.be.false;
         });
 
@@ -126,7 +170,8 @@ describe("Admin Instructions", () => {
                         ctx.governance.publicKey,
                         ctx.erAuthority.publicKey,
                         ctx.allowedMint,
-                        100
+                        100,
+                        new BN(604800)
                     )
                     .accountsPartial({ admin: ctx.admin.publicKey })
                     .rpc();

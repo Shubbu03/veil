@@ -183,12 +183,13 @@ export class VeilClient {
         governance: PublicKey,
         erAuthority: PublicKey,
         allowedMint: PublicKey,
-        maxRecipients: number
+        maxRecipients: number,
+        batchTimeoutSecs: number = 604800 // Default: 7 days
     ): Promise<string> {
         const [configPda] = getConfigPda();
 
         return await this.program.methods
-            .initConfig(governance, erAuthority, allowedMint, maxRecipients)
+            .initConfig(governance, erAuthority, allowedMint, maxRecipients, batchTimeoutSecs)
             .accountsPartial({
                 admin: this.wallet.publicKey,
             })

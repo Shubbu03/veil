@@ -31,9 +31,15 @@ pub mod veil {
         er_authority: Pubkey,
         allowed_mint: Pubkey,
         max_recipients: u16,
+        batch_timeout_secs: u64,
     ) -> Result<()> {
-        ctx.accounts
-            .init_config(governance, er_authority, allowed_mint, max_recipients)
+        ctx.accounts.init_config(
+            governance,
+            er_authority,
+            allowed_mint,
+            max_recipients,
+            batch_timeout_secs,
+        )
     }
     pub fn set_er_authority(ctx: Context<SetErAuthority>, new_er_authority: Pubkey) -> Result<()> {
         ctx.accounts.set_er_auth(new_er_authority)

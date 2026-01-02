@@ -30,6 +30,7 @@ export interface ScheduleAccount {
     paidCount: number;
     paidBitmap: number[];
     lastExecutedBatch: BN;
+    batchStartTime: BN;
     bump: number;
 }
 
@@ -39,6 +40,7 @@ export interface VeilConfig {
     paused: boolean;
     maxRecipients: number;
     allowedMint: PublicKey;
+    batchTimeoutSecs: BN;
 }
 
 export interface CreateScheduleParams {

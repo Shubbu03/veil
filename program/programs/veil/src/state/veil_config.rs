@@ -8,4 +8,5 @@ pub struct VeilConfig {
     pub paused: bool,         // emergency flag
     pub max_recipients: u16,
     pub allowed_mint: Pubkey,
+    pub batch_timeout_secs: u64, // Global timeout for batch completion (seconds)
 }
