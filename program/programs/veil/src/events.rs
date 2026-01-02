@@ -6,6 +6,7 @@ pub struct ConfigInitialized {
     pub er_authority: Pubkey,
     pub allowed_mint: Pubkey,
     pub max_recipients: u16,
+    pub batch_timeout_secs: u64,
 }
 
 #[event]

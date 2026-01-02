@@ -10,6 +10,7 @@ import {
 } from "@solana/spl-token";
 import { getConfigPda } from "./pdas";
 import { airdrop } from "./utils";
+import { BN } from "bn.js";
 
 export interface TestContext {
     provider: anchor.AnchorProvider;
@@ -112,7 +113,8 @@ export async function ensureConfigInitialized(ctx: TestContext): Promise<void> {
                 ctx.governance.publicKey,
                 ctx.erAuthority.publicKey,
                 ctx.allowedMint,
-                1024
+                1024,
+                new BN(604800) // batch_timeout_secs: 7 days
             )
             .accountsPartial({ admin: ctx.admin.publicKey })
             .rpc();

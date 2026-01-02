@@ -75,10 +75,16 @@ impl<'info> ClaimPayment<'info> {
 
         // Verify timing
         let clock = Clock::get()?;
+        let current_time = clock.unix_timestamp as u64;
         require!(
-            clock.unix_timestamp as u64 >= self.schedule.next_execution,
+            current_time >= self.schedule.next_execution,
             VeilProgramError::ExecutionTooEarly
         );
+
+        // Set batch start time if this is the first claim of the batch
+        if self.schedule.batch_start_time == 0 {
+            self.schedule.batch_start_time = current_time;
+        }
 
         // Verify leaf index is valid
         require!(
@@ -145,8 +151,19 @@ impl<'info> ClaimPayment<'info> {
             .checked_add(1)
             .ok_or(VeilProgramError::InsufficientFunds)?;
 
-        // If all recipients paid, reset for next interval
-        if self.schedule.paid_count >= self.schedule.total_recipients {
+        // Check if we should advance to next interval
+        let all_claimed = self.schedule.paid_count >= self.schedule.total_recipients;
+        let timeout_passed = self.schedule.batch_start_time > 0
+            && current_time
+                >= self
+                    .schedule
+                    .batch_start_time
+                    .checked_add(self.config.batch_timeout_secs)
+                    .ok_or(VeilProgramError::InsufficientFunds)?;
+        let has_claims = self.schedule.paid_count > 0;
+
+        // Advance if all claimed OR (timeout passed and at least one claimed)
+        if all_claimed || (timeout_passed && has_claims) {
             // Deduct per_execution_amount from reserved
             self.schedule.reserved_amount = self
                 .schedule
@@ -161,10 +178,11 @@ impl<'info> ClaimPayment<'info> {
                 .checked_sub(self.schedule.per_execution_amount)
                 .ok_or(VeilProgramError::InsufficientFunds)?;
 
-            // Reset paid_count, bitmap, and advance next_execution
+            // Reset paid_count, bitmap, batch_start_time, and advance next_execution
             self.schedule.paid_count = 0;
             self.schedule.paid_bitmap = [0u8; 128]; // Clear bitmap
-            self.schedule.next_execution = clock.unix_timestamp as u64 + self.schedule.interval_secs;
+            self.schedule.batch_start_time = 0; // Reset for next batch
+            self.schedule.next_execution = current_time + self.schedule.interval_secs;
             self.schedule.last_executed_batch = self
                 .schedule
                 .last_executed_batch
@@ -183,4 +201,3 @@ impl<'info> ClaimPayment<'info> {
         Ok(())
     }
 }
-

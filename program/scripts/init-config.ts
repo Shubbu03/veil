@@ -54,7 +54,7 @@ async function main() {
         )[0];
 
         const existingConfig = await (program.account as any).veilConfig.fetch(configPda);
-        console.log("\n⚠️  Config already exists!");
+        console.log("\nConfig already exists!");
         console.log("Governance:", existingConfig.governance.toString());
         console.log("ER Authority:", existingConfig.erAuthority.toString());
         console.log("Allowed Mint:", existingConfig.allowedMint.toString());
@@ -68,20 +68,22 @@ async function main() {
     // Initialize config
     console.log("\n📝 Initializing config...");
     const maxRecipients = 1000;
+    const batchTimeoutSecs = 604800; // 7 days (default)
 
     const tx = await program.methods
         .initConfig(
             adminKeypair.publicKey,  // governance
             erAuthorityKeypair.publicKey,  // er_authority
             USDC_DEVNET,  // allowed_mint
-            maxRecipients  // max_recipients
+            maxRecipients,  // max_recipients
+            batchTimeoutSecs  // batch_timeout_secs
         )
         .accountsPartial({
             admin: adminKeypair.publicKey,
         })
         .rpc();
 
-    console.log("\n✅ Config initialized successfully!");
+    console.log("\nConfig initialized successfully!");
     console.log("Transaction signature:", tx);
     console.log(`View on explorer: https://explorer.solana.com/tx/${tx}?cluster=devnet`);
 
@@ -92,16 +94,17 @@ async function main() {
     )[0];
 
     const config = await (program.account as any).veilConfig.fetch(configPda);
-    console.log("\n📋 Config details:");
+    console.log("\nConfig details:");
     console.log("  Governance:", config.governance.toString());
     console.log("  ER Authority:", config.erAuthority.toString());
     console.log("  Allowed Mint:", config.allowedMint.toString());
     console.log("  Max Recipients:", config.maxRecipients.toString());
+    console.log("  Batch Timeout (secs):", config.batchTimeoutSecs.toString());
     console.log("  Paused:", config.paused);
 }
 
 main().catch((error) => {
-    console.error("❌ Error:", error);
+    console.error("Error:", error);
     process.exit(1);
 });
 

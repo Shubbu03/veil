@@ -3,6 +3,7 @@ import { Program } from "@coral-xyz/anchor";
 import { Veil } from "../target/types/veil";
 import { expect } from "chai";
 import { PublicKey, Keypair } from "@solana/web3.js";
+import { BN } from "bn.js";
 
 describe("veil", () => {
   const provider = anchor.AnchorProvider.env();
@@ -89,7 +90,8 @@ describe("veil", () => {
               governance.publicKey,
               erAuthority.publicKey,
               allowedMint,
-              0
+              0,
+              new BN(604800)
             )
             .accounts({
               admin: admin.publicKey,
@@ -109,7 +111,8 @@ describe("veil", () => {
               governance.publicKey,
               PublicKey.default,
               allowedMint,
-              100
+              100,
+              new BN(604800)
             )
             .accounts({
               admin: admin.publicKey,
@@ -129,7 +132,8 @@ describe("veil", () => {
               governance.publicKey,
               erAuthority.publicKey,
               PublicKey.default,
-              100
+              100,
+              new BN(604800)
             )
             .accounts({
               admin: admin.publicKey,
@@ -156,7 +160,8 @@ describe("veil", () => {
             governance.publicKey,
             erAuthority.publicKey,
             allowedMint,
-            maxRecipients
+            maxRecipients,
+            new BN(604800)
           )
           .accounts({
             admin: admin.publicKey,
@@ -172,6 +177,7 @@ describe("veil", () => {
         );
         expect(config.allowedMint.toString()).to.equal(allowedMint.toString());
         expect(config.maxRecipients).to.equal(maxRecipients);
+        expect(config.batchTimeoutSecs.toNumber()).to.equal(604800);
         expect(config.paused).to.be.false;
       });
 
@@ -182,7 +188,8 @@ describe("veil", () => {
               governance.publicKey,
               erAuthority.publicKey,
               allowedMint,
-              100
+              100,
+              new BN(604800)
             )
             .accounts({
               admin: admin.publicKey,

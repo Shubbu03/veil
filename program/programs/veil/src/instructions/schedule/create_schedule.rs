@@ -114,6 +114,7 @@ impl<'info> CreateSchedule<'info> {
             paid_count: 0,
             paid_bitmap: [0u8; 128],
             last_executed_batch: 0,
+            batch_start_time: 0, // Will be set on first claim
             bump,
         });
 
