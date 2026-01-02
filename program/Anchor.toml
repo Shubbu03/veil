@@ -5,8 +5,8 @@ package_manager = "yarn"
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-veil = "6fnyZCuDriRnak18b4mrg9y2Z3gy2P9QByqVYSauYWX8"
+[programs.devnet]
+veil = "6cibjMX1UwnqSxRkiSBp89NV5Z8Ws3M9i5kizxm8ZnTS"
 
 [registry]
 url = "https://api.apr.dev"

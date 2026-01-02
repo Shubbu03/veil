@@ -1,7 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 
 export const PROGRAM_ID = new PublicKey(
-    "6fnyZCuDriRnak18b4mrg9y2Z3gy2P9QByqVYSauYWX8"
+    "6cibjMX1UwnqSxRkiSBp89NV5Z8Ws3M9i5kizxm8ZnTS"
 );
 
 export function getConfigPda(): [PublicKey, number] {
