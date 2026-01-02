@@ -11,11 +11,9 @@ async function testDatabaseConnection(): Promise<boolean> {
     try {
         // Simple query to test connection
         await db.execute(sql`SELECT 1`);
-        console.log(`Database: Connected ✓`);
         return true;
     } catch (error: any) {
-        console.error(`Database: Connection failed ✗`);
-        console.error(`Error: ${error.message}`);
+        console.error(`Database connection failed: ${error.message}`);
         return false;
     }
 }

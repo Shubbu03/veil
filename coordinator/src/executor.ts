@@ -19,21 +19,14 @@ export async function executeSchedule(
     vaultPda: PublicKey,
     recipientData: ScheduleRecipientData
 ): Promise<void> {
-    console.log(`Executing schedule ${schedulePda.toString()}`);
-
     // Step 1: Delegate schedule to ER (on Solana)
-    console.log(`Delegating schedule to ER...`);
     await delegateSchedule(solanaConnection, erAuthority, schedulePda, scheduleId, vaultPda);
 
     // Step 2: Execute claims on ER
-    console.log(`Executing ${recipientData.recipients.length} claims on ER...`);
     await executeClaimsOnER(erAuthority, schedulePda, scheduleId, recipientData);
 
     // Step 3: Commit state from ER back to Solana base layer
-    console.log(`Committing state to Solana...`);
     await commitAndUndelegate(solanaConnection, erAuthority, schedulePda);
-
-    console.log(`Schedule ${schedulePda.toString()} executed successfully`);
 }
 
 async function delegateSchedule(
@@ -92,8 +85,6 @@ async function executeClaimsOnER(
         try {
             const recipientAta = await getAssociatedTokenAddress(tokenMint, recipientPubkey);
 
-            console.log(`Claiming for ${recipientPubkey.toString()}: ${amount.toString()}`);
-
             const tx = await erProgram.methods
                 .claimPayment(
                     scheduleId,
@@ -117,11 +108,9 @@ async function executeClaimsOnER(
             // Send to ER
             const signature = await erConnection.sendTransaction(tx, [erAuthority.payer]);
             await erConnection.confirmTransaction(signature, "confirmed");
-
-            console.log(`Claimed for ${recipientPubkey.toString()}: ${signature}`);
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
-            console.error(` Failed to claim for ${recipientPubkey.toString()}:`, errorMsg);
+            console.error(`Failed to claim for ${recipientPubkey.toString()}:`, errorMsg);
         }
     }
 }

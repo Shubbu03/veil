@@ -17,14 +17,8 @@ async function main() {
     const vaultEmployerArg = process.argv[4];
 
     if (!schedulePdaArg || !scheduleIdArg || !vaultEmployerArg) {
-        console.error(`\nMissing required arguments!`);
-        console.error(`\nUsage:`);
-        console.error(`  ts-node examples/04-register-with-coordinator.ts <schedulePda> <scheduleId> <vaultEmployer>`);
-        console.error(`\nExample:`);
-        console.error(`  ts-node examples/04-register-with-coordinator.ts \\`);
-        console.error(`    "SchedulePDA..." \\`);
-        console.error(`    "[1,2,3,...]" \\`);
-        console.error(`    "EmployerPubkey..."`);
+        console.error("Missing required arguments");
+        console.error("Usage: ts-node examples/04-register-with-coordinator.ts <schedulePda> <scheduleId> <vaultEmployer>");
         process.exit(1);
     }
 
@@ -36,24 +30,14 @@ async function main() {
     const scheduleId = JSON.parse(scheduleIdArg);
     const vaultEmployer = new PublicKey(vaultEmployerArg);
 
-    console.log(`\nSetup:`);
-    console.log(`   Schedule PDA: ${schedulePda.toString()}`);
-    console.log(`   Schedule ID: ${Buffer.from(scheduleId).toString("hex")}`);
-    console.log(`   Vault Employer: ${formatPubkey(vaultEmployer)}`);
-    console.log(`   Coordinator API: ${COORDINATOR_API}`);
-
-    console.log(`\nVerifying schedule exists...`);
     try {
         const schedule = await client.getSchedule(schedulePda);
         if (!schedule) {
-            console.error(`\nSchedule not found!`);
+            console.error("Schedule not found");
             process.exit(1);
         }
-        console.log(`   Schedule found`);
-        console.log(`   Status: ${schedule.status}`);
-        console.log(`   Total Recipients: ${schedule.totalRecipients}`);
     } catch (error: any) {
-        console.error(`\nError fetching schedule:`, error.message);
+        console.error("Error fetching schedule:", error.message);
         process.exit(1);
     }
 
@@ -72,10 +56,7 @@ async function main() {
         },
     ];
 
-    console.log(`\nPreparing recipient data...`);
-    console.log(`   Recipients: ${recipients.length}`);
-
-    const { proofs } = buildMerkleTree(recipients);
+    buildMerkleTree(recipients);
 
     const requestBody = {
         schedulePda: schedulePda.toString(),
@@ -88,7 +69,6 @@ async function main() {
         })),
     };
 
-    console.log(`\nRegistering with coordinator...`);
     try {
         const response = await fetch(`${COORDINATOR_API}/api/schedules`, {
             method: "POST",
@@ -103,26 +83,11 @@ async function main() {
             throw new Error(error.error || `HTTP ${response.status}`);
         }
 
-        const result = await response.json() as { merkleRoot: number[] };
-        console.log(`\nSchedule registered successfully!`);
-        console.log(`   Merkle Root: ${Buffer.from(result.merkleRoot).toString("hex")}`);
-
-        console.log(`\nVerifying registration...`);
-        const verifyResponse = await fetch(`${COORDINATOR_API}/api/schedules/${schedulePda.toString()}`);
-        if (verifyResponse.ok) {
-            const scheduleInfo = await verifyResponse.json() as { schedulePda: string; recipientCount: number; createdAt: number };
-            console.log(`   Verified:`);
-            console.log(`   Schedule PDA: ${scheduleInfo.schedulePda}`);
-            console.log(`   Recipient Count: ${scheduleInfo.recipientCount}`);
-            console.log(`   Created At: ${new Date(scheduleInfo.createdAt).toISOString()}`);
-        }
-
-        console.log(`\nCoordinator will now monitor this schedule for execution!`);
+        await fetch(`${COORDINATOR_API}/api/schedules/${schedulePda.toString()}`);
     } catch (error: any) {
-        console.error(`\nError registering with coordinator:`, error.message);
+        console.error("Error registering with coordinator:", error.message);
         if (error.message.includes("ECONNREFUSED")) {
-            console.error(`\nMake sure the coordinator is running:`);
-            console.error(`   cd coordinator && yarn dev`);
+            console.error("Make sure the coordinator is running: cd coordinator && yarn dev");
         }
         throw error;
     }
