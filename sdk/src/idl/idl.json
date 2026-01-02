@@ -1,5 +1,5 @@
 {
-  "address": "6fnyZCuDriRnak18b4mrg9y2Z3gy2P9QByqVYSauYWX8",
+  "address": "6cibjMX1UwnqSxRkiSBp89NV5Z8Ws3M9i5kizxm8ZnTS",
   "metadata": {
     "name": "veil",
     "version": "0.1.0",
@@ -1031,6 +1031,10 @@
         {
           "name": "max_recipients",
           "type": "u16"
+        },
+        {
+          "name": "batch_timeout_secs",
+          "type": "u64"
         }
       ]
     },
@@ -2014,6 +2018,11 @@
       "code": 6022,
       "name": "InvalidLeafIndex",
       "msg": "Invalid leaf index"
+    },
+    {
+      "code": 6023,
+      "name": "InvalidBatchTimeout",
+      "msg": "Invalid batch timeout - must be between 1 hour and 30 days"
     }
   ],
   "types": [
@@ -2037,6 +2046,10 @@
           {
             "name": "max_recipients",
             "type": "u16"
+          },
+          {
+            "name": "batch_timeout_secs",
+            "type": "u64"
           }
         ]
       }
@@ -2199,6 +2212,10 @@
           },
           {
             "name": "last_executed_batch",
+            "type": "u64"
+          },
+          {
+            "name": "batch_start_time",
             "type": "u64"
           },
           {
@@ -2533,6 +2550,10 @@
           {
             "name": "allowed_mint",
             "type": "pubkey"
+          },
+          {
+            "name": "batch_timeout_secs",
+            "type": "u64"
           }
         ]
       }
