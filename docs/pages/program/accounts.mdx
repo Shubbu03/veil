@@ -1,0 +1,76 @@
+# Program Accounts
+
+Account structures for the Veil program.
+
+## VeilConfig
+
+Global protocol configuration.
+
+```rust
+pub struct VeilConfig {
+    pub er_authority: Pubkey,
+    pub governance: Pubkey,
+    pub paused: bool,
+    pub allowed_mint: Pubkey,
+    pub max_recipients: u16,
+    pub batch_timeout_secs: u64,
+}
+```
+
+**PDA:** `["veil_config"]`
+
+## VaultAccount
+
+Vault account holding tokens.
+
+```rust
+pub struct VaultAccount {
+    pub employer: Pubkey,
+    pub token_mint: Pubkey,
+    pub available: u64,
+    pub reserved: u64,
+    pub vault_ata: Pubkey,
+    pub bump: u8,
+}
+```
+
+**PDA:** `["vault", employer]`
+
+## ScheduleAccount
+
+Payment schedule account.
+
+```rust
+pub struct ScheduleAccount {
+    pub employer: Pubkey,
+    pub vault: Pubkey,
+    pub schedule_id: [u8; 32],
+    pub status: ScheduleStatus,
+    pub interval_secs: u64,
+    pub reserved_amount: u64,
+    pub per_execution_amount: u64,
+    pub merkle_root: [u8; 32],
+    pub total_recipients: u16,
+    pub next_execution: u64,
+    pub last_executed_batch: u64,
+    pub paid_count: u16,
+    pub paid_bitmap: [u8; 128],
+    pub batch_start_time: u64,
+    pub er_job_id: [u8; 32],
+    pub bump: u8,
+}
+```
+
+**PDA:** `["schedule", vault, schedule_id]`
+
+## ScheduleStatus
+
+Schedule status enum.
+
+```rust
+pub enum ScheduleStatus {
+    Active,
+    Paused,
+    Cancelled,
+}
+```

@@ -1,0 +1,177 @@
+# Program Instructions
+
+On-chain instructions for the Veil program.
+
+## Vault Instructions
+
+### init_vault
+
+Initialize a vault for an employer.
+
+**Accounts:**
+- `employer` - Signer, vault owner
+- `vault` - Vault PDA (seeds: `["vault", employer]`)
+- `vault_ata` - Vault's token account
+- `token_mint` - Token mint
+- `token_program` - Token program
+- `associated_token_program` - Associated token program
+- `system_program` - System program
+
+**Parameters:**
+- `token_mint` - Token mint address
+
+### deposit
+
+Deposit tokens into vault.
+
+**Accounts:**
+- `employer` - Signer, vault owner
+- `vault` - Vault PDA
+- `vault_ata` - Vault's token account
+- `employer_ata` - Employer's token account
+- `token_mint` - Token mint
+- `token_program` - Token program
+
+**Parameters:**
+- `amount` - Amount to deposit (u64)
+
+### withdraw
+
+Withdraw tokens from vault.
+
+**Accounts:**
+- `employer` - Signer, vault owner
+- `vault` - Vault PDA
+- `vault_ata` - Vault's token account
+- `employer_ata` - Employer's token account
+- `token_mint` - Token mint
+- `token_program` - Token program
+
+**Parameters:**
+- `amount` - Amount to withdraw (u64)
+
+## Schedule Instructions
+
+### create_schedule
+
+Create a payment schedule.
+
+**Accounts:**
+- `employer` - Signer, vault owner
+- `config` - Global config PDA
+- `vault` - Vault PDA
+- `schedule` - Schedule PDA (seeds: `["schedule", vault, schedule_id]`)
+- `system_program` - System program
+
+**Parameters:**
+- `schedule_id` - Schedule identifier ([u8; 32])
+- `interval_secs` - Seconds between executions (u64)
+- `reserved_amount` - Total amount to reserve (u64)
+- `per_execution_amount` - Amount per execution (u64)
+- `merkle_root` - Merkle root ([u8; 32])
+- `total_recipients` - Number of recipients (u16)
+- `er_job_id` - ER job identifier ([u8; 32])
+
+### pause_schedule
+
+Pause or resume a schedule.
+
+**Accounts:**
+- `employer` - Signer, vault owner
+- `schedule` - Schedule PDA
+
+**Parameters:**
+- `schedule_id` - Schedule identifier ([u8; 32])
+- `paused` - Pause flag (bool)
+
+### cancel_schedule
+
+Cancel a schedule and return reserved funds.
+
+**Accounts:**
+- `employer` - Signer, vault owner
+- `vault` - Vault PDA
+- `schedule` - Schedule PDA
+
+**Parameters:**
+- `schedule_id` - Schedule identifier ([u8; 32])
+
+### claim_payment
+
+Claim a payment (executed on ER).
+
+**Accounts:**
+- `er_authority` - Signer, ER authority
+- `config` - Global config PDA
+- `vault` - Vault PDA
+- `vault_ata` - Vault's token account
+- `schedule` - Schedule PDA
+- `recipient_ata` - Recipient's token account
+- `token_mint` - Token mint
+- `token_program` - Token program
+- `associated_token_program` - Associated token program
+- `system_program` - System program
+
+**Parameters:**
+- `schedule_id` - Schedule identifier ([u8; 32])
+- `recipient` - Recipient address (Pubkey)
+- `amount` - Payment amount (u64)
+- `leaf_index` - Leaf index in Merkle tree (u16)
+- `proof` - Merkle proof (Vec of `[u8; 32]` arrays)
+
+## Admin Instructions
+
+### init_config
+
+Initialize global protocol config.
+
+**Accounts:**
+- `admin` - Signer, admin
+- `config` - Config PDA (seeds: `["veil_config"]`)
+- `system_program` - System program
+
+**Parameters:**
+- `governance` - Governance address (Pubkey)
+- `er_authority` - ER authority address (Pubkey)
+- `allowed_mint` - Allowed token mint (Pubkey)
+- `max_recipients` - Maximum recipients per schedule (u16)
+- `batch_timeout_secs` - Batch timeout in seconds (u64)
+
+### pause
+
+Pause/unpause protocol.
+
+**Accounts:**
+- `governance` - Signer, governance
+- `config` - Config PDA
+
+**Parameters:**
+- `paused` - Pause flag (bool)
+
+## ER Instructions
+
+### delegate_schedule
+
+Delegate schedule to ER.
+
+**Accounts:**
+- `er_authority` - Signer, ER authority
+- `config` - Global config PDA
+- `vault` - Vault PDA
+- `schedule` - Schedule PDA
+
+**Parameters:**
+- `schedule_id` - Schedule identifier ([u8; 32])
+
+### commit
+
+Commit ER execution state.
+
+**Accounts:**
+- `er_authority` - Signer, ER authority
+- `config` - Global config PDA
+- `vault` - Vault PDA
+- `schedule` - Schedule PDA
+
+**Parameters:**
+- `schedule_id` - Schedule identifier ([u8; 32])
