@@ -1,0 +1,94 @@
+# Vault Operations
+
+Manage vaults to store tokens for payment schedules.
+
+## Initialize Vault
+
+Create a vault for your wallet. Each wallet can have one vault per token mint.
+
+```typescript
+import { PublicKey } from "@solana/web3.js";
+
+const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const signature = await client.initVault(USDC_MINT);
+console.log("Vault created:", signature);
+```
+
+**Returns:** Transaction signature
+
+## Deposit Tokens
+
+Deposit tokens from your wallet into the vault.
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+
+const amount = new BN(1_000_000); // 1 USDC (6 decimals)
+
+const signature = await client.deposit(amount, USDC_MINT);
+console.log("Deposited:", signature);
+```
+
+**Parameters:**
+- `amount` - Amount in smallest unit (BN)
+- `mint` - Token mint address (PublicKey)
+
+**Returns:** Transaction signature
+
+## Withdraw Tokens
+
+Withdraw available (non-reserved) tokens from the vault.
+
+```typescript
+const amount = new BN(500_000); // 0.5 USDC
+
+const signature = await client.withdraw(amount, USDC_MINT);
+console.log("Withdrawn:", signature);
+```
+
+**Note:** Can only withdraw `available` balance, not `reserved` funds.
+
+## Get Vault State
+
+```typescript
+const vault = await client.getVault();
+
+if (vault) {
+  console.log("Available:", vault.available.toString());
+  console.log("Reserved:", vault.reserved.toString());
+  console.log("Token Mint:", vault.tokenMint.toString());
+  console.log("Employer:", vault.employer.toString());
+}
+```
+
+**Returns:** `VaultAccount | null`
+
+**VaultAccount Fields:**
+- `employer` - Wallet that owns the vault
+- `tokenMint` - Token mint address
+- `available` - Available balance (BN)
+- `reserved` - Reserved balance (BN)
+- `vaultAta` - Vault's token account address
+
+## Example: Complete Vault Flow
+
+```typescript
+import { PublicKey } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+
+const USDC = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+// 1. Create vault
+await client.initVault(USDC);
+
+// 2. Deposit 10 USDC
+await client.deposit(new BN(10_000_000), USDC);
+
+// 3. Check balance
+const vault = await client.getVault();
+console.log("Available:", vault?.available.toString());
+
+// 4. Withdraw 5 USDC
+await client.withdraw(new BN(5_000_000), USDC);
+```

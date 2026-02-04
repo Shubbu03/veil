@@ -1,0 +1,173 @@
+# Schedule Operations
+
+Create and manage payment schedules.
+
+## Create Schedule (Simple)
+
+Use `createScheduleFromRecipients` for automatic merkle tree generation.
+
+```typescript
+import { PublicKey } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+
+const recipients = [
+  { address: new PublicKey("recipient1..."), amount: 100_000n },
+  { address: new PublicKey("recipient2..."), amount: 200_000n },
+  { address: new PublicKey("recipient3..."), amount: 200_000n },
+];
+
+const { signature, scheduleId, merkleRoot } =
+  await client.createScheduleFromRecipients({
+    recipients,
+    intervalSecs: 86400, // Daily (24 hours)
+    reservedAmount: new BN(10_000_000), // Total reserved: 10 USDC
+    perExecutionAmount: new BN(500_000), // Per cycle: 0.5 USDC
+  });
+
+console.log("Schedule created:", signature);
+console.log("Schedule ID:", scheduleId);
+console.log("Merkle Root:", merkleRoot);
+```
+
+**Parameters:**
+- `recipients` - Array of `{ address: PublicKey, amount: bigint }`
+- `intervalSecs` - Seconds between executions
+- `reservedAmount` - Total amount to reserve (BN)
+- `perExecutionAmount` - Amount paid per execution cycle (BN)
+
+**Returns:**
+- `signature` - Transaction signature
+- `scheduleId` - Schedule ID (number[])
+- `merkleRoot` - Merkle root (number[])
+
+## Create Schedule (Advanced)
+
+For manual control over schedule parameters.
+
+```typescript
+import { generateScheduleId, buildMerkleTree } from "@veil/sdk";
+
+// Generate IDs
+const scheduleId = generateScheduleId();
+const erJobId = generateScheduleId();
+
+// Build merkle tree manually
+const recipients = [
+  { address: pubkey1, amount: 100_000n },
+  { address: pubkey2, amount: 200_000n },
+];
+const { root, proofs } = buildMerkleTree(recipients);
+
+// Create schedule
+const signature = await client.createSchedule({
+  scheduleId,
+  intervalSecs: 86400,
+  reservedAmount: new BN(10_000_000),
+  perExecutionAmount: new BN(500_000),
+  merkleRoot: Array.from(root),
+  totalRecipients: recipients.length,
+  erJobId,
+});
+```
+
+## Pause Schedule
+
+Pause or resume a schedule.
+
+```typescript
+import { getVaultPda, getSchedulePda } from "@veil/sdk";
+
+const [vaultPda] = getVaultPda(wallet.publicKey);
+const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
+
+// Pause
+await client.pauseSchedule(schedulePda, true);
+
+// Resume
+await client.pauseSchedule(schedulePda, false);
+```
+
+## Cancel Schedule
+
+Cancelling returns reserved funds to available balance.
+
+```typescript
+await client.cancelSchedule(schedulePda);
+```
+
+**Note:** Cancelled schedules cannot be resumed.
+
+## Get Schedule State
+
+```typescript
+const schedule = await client.getSchedule(schedulePda);
+
+if (schedule) {
+  console.log("Status:", schedule.status);
+  console.log("Next Execution:", schedule.nextExecution.toString());
+  console.log("Reserved:", schedule.reservedAmount.toString());
+  console.log("Recipients:", schedule.totalRecipients);
+  console.log("Last Executed Batch:", schedule.lastExecutedBatch.toString());
+}
+```
+
+**Returns:** `ScheduleAccount | null`
+
+**ScheduleAccount Fields:**
+- `employer` - Vault owner
+- `vault` - Vault PDA
+- `scheduleId` - Schedule identifier
+- `status` - Active | Paused | Cancelled
+- `intervalSecs` - Seconds between executions
+- `reservedAmount` - Reserved funds (BN)
+- `perExecutionAmount` - Amount per cycle (BN)
+- `merkleRoot` - Merkle root (number[])
+- `totalRecipients` - Number of recipients
+- `nextExecution` - Next execution timestamp (BN)
+- `lastExecutedBatch` - Last batch number (BN)
+
+## PDA Helpers
+
+Derive program addresses without making RPC calls.
+
+```typescript
+import {
+  getVaultPda,
+  getSchedulePda,
+} from "@veil/sdk";
+
+// Vault for an employer
+const [vaultPda, vaultBump] = getVaultPda(employerPubkey);
+
+// Schedule
+const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
+```
+
+## Example: Complete Schedule Flow
+
+```typescript
+// 1. Create schedule
+const { scheduleId, merkleRoot } = await client.createScheduleFromRecipients({
+  recipients: [
+    { address: recipient1, amount: 100_000n },
+    { address: recipient2, amount: 200_000n },
+  ],
+  intervalSecs: 86400,
+  reservedAmount: new BN(2_000_000),
+  perExecutionAmount: new BN(300_000),
+});
+
+// 2. Get schedule PDA
+const [vaultPda] = getVaultPda(wallet.publicKey);
+const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
+
+// 3. Check status
+const schedule = await client.getSchedule(schedulePda);
+console.log("Status:", schedule?.status);
+
+// 4. Pause if needed
+await client.pauseSchedule(schedulePda, true);
+
+// 5. Resume
+await client.pauseSchedule(schedulePda, false);
+```
