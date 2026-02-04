@@ -1,59 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { useRouter } from 'next/router'
-import { useConfig, useTheme } from 'nextra-theme-docs'
-import { Sun, Moon } from 'lucide-react'
-
-const ThemeToggle = () => {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return (
-      <button
-        style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'inherit',
-          width: '36px',
-          height: '36px',
-        }}
-        aria-label="Toggle theme"
-      >
-        <Sun size={20} />
-      </button>
-    )
-  }
-
-  return (
-    <button
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      style={{
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        padding: '8px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'inherit',
-        width: '36px',
-        height: '36px',
-      }}
-      aria-label="Toggle theme"
-    >
-      {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-    </button>
-  )
-}
+import { useConfig } from 'nextra-theme-docs'
 
 export default {
   logo: <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>Veil</span>,
@@ -61,9 +8,6 @@ export default {
     link: 'https://github.com/Shubbu03/veil',
   },
   docsRepositoryBase: 'https://github.com/Shubbu03/veil/tree/main/docs',
-  navbar: {
-    extraContent: <ThemeToggle />,
-  },
   footer: {
     text: 'Veil Documentation © 2026',
   },
