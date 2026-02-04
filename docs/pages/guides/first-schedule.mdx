@@ -1,0 +1,148 @@
+# Create Your First Schedule
+
+Step-by-step guide to creating your first payment schedule.
+
+## Prerequisites
+
+- Veil SDK installed
+- Wallet with SOL for fees
+- USDC devnet tokens (for deposits)
+- Basic TypeScript knowledge
+
+## Step 1: Setup
+
+```typescript
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { Wallet, BN } from "@coral-xyz/anchor";
+import { VeilClient } from "@veil/sdk";
+
+const connection = new Connection("https://api.devnet.solana.com");
+const wallet = new Wallet(keypair);
+const client = new VeilClient({ connection, wallet });
+```
+
+## Step 2: Create Vault
+
+```typescript
+const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+await client.initVault(USDC_MINT);
+console.log("Vault created!");
+```
+
+## Step 3: Deposit Tokens
+
+```typescript
+const amount = new BN(10_000_000); // 10 USDC (6 decimals)
+
+await client.deposit(amount, USDC_MINT);
+console.log("Deposited 10 USDC");
+```
+
+## Step 4: Define Recipients
+
+```typescript
+const recipients = [
+  {
+    address: new PublicKey("Recipient1Address..."),
+    amount: 100_000n, // 0.1 USDC
+  },
+  {
+    address: new PublicKey("Recipient2Address..."),
+    amount: 200_000n, // 0.2 USDC
+  },
+  {
+    address: new PublicKey("Recipient3Address..."),
+    amount: 200_000n, // 0.2 USDC
+  },
+];
+```
+
+## Step 5: Create Schedule
+
+```typescript
+const { signature, scheduleId, merkleRoot } =
+  await client.createScheduleFromRecipients({
+    recipients,
+    intervalSecs: 86400, // Daily (24 hours)
+    reservedAmount: new BN(5_000_000), // Reserve 5 USDC total
+    perExecutionAmount: new BN(500_000), // Pay 0.5 USDC per cycle
+  });
+
+console.log("Schedule created!");
+console.log("Signature:", signature);
+console.log("Schedule ID:", scheduleId);
+console.log("Merkle Root:", merkleRoot);
+```
+
+## Step 6: Register with Coordinator
+
+Register your schedule for automatic execution:
+
+```typescript
+const COORDINATOR_URL = "{COORDINATOR_URL}"; // e.g. http://localhost:3001/api
+
+const response = await fetch(`${COORDINATOR_URL}/schedules`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    schedulePda: schedulePda.toString(),
+    scheduleId: Array.from(scheduleId),
+    vaultEmployer: wallet.publicKey.toString(),
+    tokenMint: USDC_MINT.toString(),
+    recipients: recipients.map((r) => ({
+      address: r.address.toString(),
+      amount: r.amount.toString(),
+    })),
+  }),
+});
+
+const data = await response.json();
+console.log("Registered:", data);
+```
+
+## Complete Example
+
+```typescript
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { Wallet, BN } from "@coral-xyz/anchor";
+import { VeilClient, getVaultPda, getSchedulePda } from "@veil/sdk";
+
+async function createFirstSchedule() {
+  // Setup
+  const connection = new Connection("https://api.devnet.solana.com");
+  const wallet = new Wallet(keypair);
+  const client = new VeilClient({ connection, wallet });
+
+  const USDC = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+  // 1. Create vault
+  await client.initVault(USDC);
+
+  // 2. Deposit
+  await client.deposit(new BN(10_000_000), USDC);
+
+  // 3. Create schedule
+  const recipients = [
+    { address: new PublicKey("..."), amount: 100_000n },
+    { address: new PublicKey("..."), amount: 200_000n },
+  ];
+
+  const { scheduleId } = await client.createScheduleFromRecipients({
+    recipients,
+    intervalSecs: 86400,
+    reservedAmount: new BN(5_000_000),
+    perExecutionAmount: new BN(500_000),
+  });
+
+  // 4. Get schedule PDA
+  const [vaultPda] = getVaultPda(wallet.publicKey);
+  const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
+
+  // 5. Check status
+  const schedule = await client.getSchedule(schedulePda);
+  console.log("Schedule status:", schedule?.status);
+}
+
+createFirstSchedule();
+```

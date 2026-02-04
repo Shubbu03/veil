@@ -1,0 +1,105 @@
+# Contributing
+
+Contributing to Veil.
+
+## Getting Started
+
+1. **Fork the repository**
+2. **Clone your fork**
+3. **Create a branch**
+
+```bash
+git checkout -b feature/your-feature
+```
+
+## Development Setup
+
+### Prerequisites
+
+- Node.js 18+
+- Rust & Anchor
+- Solana CLI
+- PostgreSQL (for coordinator)
+
+### Install Dependencies
+
+```bash
+# Program
+cd program && yarn install
+
+# SDK
+cd ../sdk && yarn install
+
+# Coordinator
+cd ../coordinator && yarn install
+
+# Examples
+cd ../examples && yarn install
+```
+
+### Build
+
+```bash
+# Program
+cd program && anchor build
+
+# SDK
+cd ../sdk && yarn build
+
+# Coordinator
+cd ../coordinator && yarn build
+```
+
+## Code Style
+
+- **Rust:** Follow standard Rust conventions
+- **TypeScript:** Use ESLint and Prettier
+- **Commits:** Use conventional commits
+
+## Testing
+
+### Program Tests
+
+```bash
+cd program
+anchor test
+```
+
+### SDK Tests
+
+```bash
+cd sdk
+yarn test
+```
+
+### Integration Tests
+
+```bash
+cd examples
+yarn 05-full-flow
+```
+
+## Pull Requests
+
+1. **Update documentation** if needed
+2. **Add tests** for new features
+3. **Run tests** before submitting
+4. **Write clear commit messages**
+
+## Documentation
+
+- Update relevant docs in `/docs`
+- Add examples for new features
+- Update API reference
+
+## Reporting Issues
+
+- Use GitHub Issues
+- Include reproduction steps
+- Provide error messages/logs
+
+## Code of Conduct
+
+- Be respectful
+- Welcome newcomers
+- Focus on constructive feedback

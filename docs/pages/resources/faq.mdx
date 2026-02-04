@@ -1,0 +1,92 @@
+# FAQ
+
+Frequently asked questions about Veil.
+
+## General
+
+### What is Veil?
+
+Veil is a privacy-preserving payment protocol for Solana. It enables scheduled payments where recipient lists are hidden using Merkle trees and executed privately in TEE via MagicBlock Ephemeral Rollups.
+
+### Why use Veil?
+
+On-chain payments are fully transparent. Veil hides recipient lists and amounts while maintaining on-chain verification through Merkle proofs.
+
+### Is Veil open source?
+
+Yes, Veil is fully open source. See our [GitHub repository](https://github.com/Shubbu03/veil).
+
+## Privacy
+
+### What information is public?
+
+- Vault addresses
+- Schedule PDAs
+- Merkle roots (32 bytes)
+- Total recipient count
+- Execution intervals
+
+### What information is private?
+
+- Individual recipient addresses
+- Individual payment amounts
+- Recipient order/index
+- Merkle proofs (stored off-chain)
+
+### How does privacy work?
+
+Recipient lists are stored as Merkle roots on-chain. Individual claims are executed privately in TEE via MagicBlock ER, so recipient lists are never exposed.
+
+## Technical
+
+### What tokens are supported?
+
+Currently, a **single SPL token mint** configured in the global `VeilConfig` (e.g. USDC on devnet). The program enforces that all vaults and deposits use this `allowed_mint`.
+
+### How many recipients per schedule?
+
+Configurable, default is 1024. Check `maxRecipients` in config.
+
+### What's the execution interval?
+
+Any interval >= 1 hour. Common intervals:
+- Daily: 86400 seconds
+- Weekly: 604800 seconds
+- Monthly: ~2592000 seconds
+
+### How does batch execution work?
+
+When a schedule is due:
+1. Coordinator delegates to ER
+2. Recipients claim with Merkle proofs (private)
+3. Batch completes when all claim OR timeout
+4. State committed back to Solana
+
+## Coordinator
+
+### Do I need to run a coordinator?
+
+For automatic execution, yes. You can also manually execute claims if you have ER authority.
+
+### Can multiple coordinators run?
+
+Yes, but they should coordinate to avoid duplicate executions. Future versions will support distributed coordination.
+
+### What happens if coordinator goes down?
+
+Schedules will pause until coordinator resumes. No funds are lost.
+
+## Security
+
+### Are funds safe?
+
+Yes. Funds are stored in program-controlled vaults. Only the employer can withdraw available balance.
+
+### Can recipients claim multiple times?
+
+No. Each recipient can only claim once per batch using a paid bitmap.
+
+### What if Merkle proof is wrong?
+
+Invalid proofs are rejected on-chain. Only valid recipients with correct proofs can claim.
+

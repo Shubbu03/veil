@@ -1,0 +1,162 @@
+# Payroll Example
+
+Example: Setting up private payroll payments for employees.
+
+## Use Case
+
+A company wants to pay employees weekly without exposing:
+- Who gets paid
+- Individual salaries
+- Total payroll amount
+
+## Setup
+
+```typescript
+import { VeilClient } from "@veil/sdk";
+import { PublicKey } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+
+const client = new VeilClient({ connection, wallet });
+const USDC = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+```
+
+## Step 1: Initialize Payroll Vault
+
+```typescript
+// Create vault for payroll
+await client.initVault(USDC);
+
+// Deposit monthly payroll budget
+const monthlyBudget = new BN(100_000_000); // 100 USDC
+await client.deposit(monthlyBudget, USDC);
+```
+
+## Step 2: Define Employee Recipients
+
+```typescript
+const employees = [
+  {
+    name: "Alice",
+    address: new PublicKey("AliceAddress..."),
+    salary: 2_000_000n, // 2 USDC per week
+  },
+  {
+    name: "Bob",
+    address: new PublicKey("BobAddress..."),
+    salary: 1_500_000n, // 1.5 USDC per week
+  },
+  {
+    name: "Charlie",
+    address: new PublicKey("CharlieAddress..."),
+    salary: 1_800_000n, // 1.8 USDC per week
+  },
+];
+
+const recipients = employees.map((e) => ({
+  address: e.address,
+  amount: e.salary,
+}));
+```
+
+## Step 3: Create Weekly Payroll Schedule
+
+```typescript
+// Weekly payroll (7 days)
+const weeklyInterval = 7 * 24 * 60 * 60; // 604800 seconds
+
+// Reserve for 4 weeks
+const weeksToReserve = 4;
+const totalWeeklyPayroll = recipients.reduce(
+  (sum, r) => sum + r.amount,
+  0n
+);
+const reservedAmount = new BN(Number(totalWeeklyPayroll) * weeksToReserve);
+
+const { scheduleId } = await client.createScheduleFromRecipients({
+  recipients,
+  intervalSecs: weeklyInterval,
+  reservedAmount,
+  perExecutionAmount: new BN(Number(totalWeeklyPayroll)),
+});
+```
+
+## Step 4: Monitor Execution
+
+```typescript
+import { getVaultPda, getSchedulePda } from "@veil/sdk";
+
+const [vaultPda] = getVaultPda(wallet.publicKey);
+const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
+
+// Check schedule status
+const schedule = await client.getSchedule(schedulePda);
+console.log("Next payment:", new Date(schedule.nextExecution.toNumber() * 1000));
+console.log("Batches executed:", schedule.lastExecutedBatch.toString());
+```
+
+## Step 5: Add New Employee
+
+To add a new employee, create a new schedule with updated recipients:
+
+```typescript
+const updatedRecipients = [
+  ...recipients,
+  { address: newPublicKey("NewEmployee..."), amount: 1_200_000n },
+];
+
+// Create new schedule with updated list
+const { scheduleId: newScheduleId } = await client.createScheduleFromRecipients({
+  recipients: updatedRecipients,
+  intervalSecs: weeklyInterval,
+  reservedAmount: new BN(Number(totalWeeklyPayroll) * 4),
+  perExecutionAmount: new BN(Number(totalWeeklyPayroll)),
+});
+```
+
+## Privacy Benefits
+
+**What's Public:**
+- Vault address
+- Schedule PDA
+- Merkle root (32 bytes)
+- Total recipients count (3)
+- Execution interval
+
+**What's Private:**
+- Individual employee addresses
+- Individual salaries
+- Total payroll amount
+- Employee order/index
+
+## Complete Example
+
+```typescript
+async function setupPayroll() {
+  // Setup
+  const client = new VeilClient({ connection, wallet });
+  const USDC = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+  // 1. Create vault
+  await client.initVault(USDC);
+  await client.deposit(new BN(100_000_000), USDC);
+
+  // 2. Define employees
+  const employees = [
+    { address: new PublicKey("..."), amount: 2_000_000n },
+    { address: new PublicKey("..."), amount: 1_500_000n },
+  ];
+
+  // 3. Create weekly schedule
+  const weeklyPayroll = employees.reduce((sum, e) => sum + e.amount, 0n);
+  const { scheduleId } = await client.createScheduleFromRecipients({
+    recipients: employees,
+    intervalSecs: 604800, // Weekly
+    reservedAmount: new BN(Number(weeklyPayroll) * 4), // 4 weeks
+    perExecutionAmount: new BN(Number(weeklyPayroll)),
+  });
+
+  console.log("Payroll schedule created:", scheduleId);
+}
+
+setupPayroll();
+```
