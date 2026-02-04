@@ -31,7 +31,7 @@ export default {
         <meta name="og:description" content="Privacy-preserving payment protocol for Solana" />
         <meta name="og:title" content={title || 'Veil'} />
         <meta name="apple-mobile-web-app-title" content="Veil" />
-        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+        <link rel="icon" href="/veil-logo.png" type="image/png" />
         <title>{title || 'Veil'}</title>
       </>
     )
