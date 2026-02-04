@@ -1,0 +1,161 @@
+import { Callout } from 'nextra/components'
+
+# API Endpoints
+
+Coordinator REST API reference.
+
+## Base URL
+
+Replace `{COORDINATOR_URL}` with your coordinator service URL.
+
+**Local Development:**
+```
+http://localhost:3001/api
+```
+
+**Production:**
+```
+https://your-coordinator-domain.com/api
+```
+
+{/* <Callout type="info">
+The coordinator is a self-hosted service. You need to deploy it yourself or use a hosted coordinator service. See [Setup Guide](/coordinator/setup) for deployment instructions.
+</Callout> */}
+
+## Register Schedule
+
+Register a schedule with recipient data for execution.
+
+**Endpoint:** `POST /api/schedules`
+
+**Request:**
+
+```json
+{
+  "schedulePda": "schedule_pubkey_here",
+  "scheduleId": [1, 2, 3, ...],
+  "vaultEmployer": "employer_pubkey_here",
+  "tokenMint": "USDC_mint_address",
+  "recipients": [
+    { "address": "recipient1_pubkey", "amount": "100000" },
+    { "address": "recipient2_pubkey", "amount": "200000" }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "schedulePda": "schedule_pubkey_here",
+  "merkleRoot": [1, 2, 3, ...]
+}
+```
+
+**Example:**
+
+```bash
+curl -X POST {COORDINATOR_URL}/api/schedules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "schedulePda": "...",
+    "scheduleId": [1, 2, 3, ...],
+    "vaultEmployer": "...",
+    "tokenMint": "...",
+    "recipients": [...]
+  }'
+```
+
+**Local Development Example:**
+
+```bash
+curl -X POST http://localhost:3001/api/schedules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "schedulePda": "...",
+    "scheduleId": [1, 2, 3, ...],
+    "vaultEmployer": "...",
+    "tokenMint": "...",
+    "recipients": [...]
+  }'
+```
+
+## Get Schedule
+
+Get schedule recipient data.
+
+**Endpoint:** `GET /api/schedules/:schedulePda`
+
+**Response:**
+
+```json
+{
+  "schedulePda": "...",
+  "scheduleId": [1, 2, 3, ...],
+  "vaultEmployer": "...",
+  "tokenMint": "...",
+  "recipients": [
+    { "address": "...", "amount": "100000" }
+  ],
+  "proofs": [...],
+  "merkleRoot": [1, 2, 3, ...],
+  "createdAt": 1234567890
+}
+```
+
+**Example:**
+
+```bash
+curl {COORDINATOR_URL}/api/schedules/SchedulePDA...
+```
+
+**Local Development Example:**
+
+```bash
+curl http://localhost:3001/api/schedules/SchedulePDA...
+```
+
+## Health Check
+
+Check coordinator health.
+
+**Endpoint:** `GET /api/health`
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "timestamp": 1234567890
+}
+```
+
+**Example:**
+
+```bash
+curl {COORDINATOR_URL}/api/health
+```
+
+**Local Development Example:**
+
+```bash
+curl http://localhost:3001/api/health
+```
+
+## Error Responses
+
+All endpoints return errors in this format:
+
+```json
+{
+  "error": "Error message",
+  "details": "..."
+}
+```
+
+**Status Codes:**
+- `200` - Success
+- `400` - Bad Request
+- `404` - Not Found
+- `500` - Internal Server Error
