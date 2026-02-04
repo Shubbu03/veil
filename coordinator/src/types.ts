@@ -1,5 +1,5 @@
 import { PublicKey } from "@solana/web3.js";
-import { Recipient, MerkleProof } from "@veil/sdk";
+import { Recipient, MerkleProof } from "@veil-dev/sdk";
 
 export interface ScheduleRecipientData {
     schedulePda: string;

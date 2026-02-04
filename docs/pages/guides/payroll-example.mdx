@@ -12,7 +12,7 @@ A company wants to pay employees weekly without exposing:
 ## Setup
 
 ```typescript
-import { VeilClient } from "@veil/sdk";
+import { VeilClient } from "@veil-dev/sdk";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 
@@ -83,7 +83,7 @@ const { scheduleId } = await client.createScheduleFromRecipients({
 ## Step 4: Monitor Execution
 
 ```typescript
-import { getVaultPda, getSchedulePda } from "@veil/sdk";
+import { getVaultPda, getSchedulePda } from "@veil-dev/sdk";
 
 const [vaultPda] = getVaultPda(wallet.publicKey);
 const [schedulePda] = getSchedulePda(vaultPda, scheduleId);

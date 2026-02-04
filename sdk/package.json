@@ -1,5 +1,5 @@
 {
-  "name": "@veil/sdk",
+  "name": "@veil-dev/sdk",
   "version": "0.1.0",
   "license": "MIT",
   "main": "./dist/index.js",
@@ -7,7 +7,14 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "sync-idl": "cp ../program/target/idl/veil.json ./src/idl/idl.json"
+    "sync-idl": "cp ../program/target/idl/veil.json ./src/idl/idl.json",
+    "prepublishOnly": "npm run sync-idl && npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",

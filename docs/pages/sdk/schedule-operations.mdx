@@ -45,7 +45,7 @@ console.log("Merkle Root:", merkleRoot);
 For manual control over schedule parameters.
 
 ```typescript
-import { generateScheduleId, buildMerkleTree } from "@veil/sdk";
+import { generateScheduleId, buildMerkleTree } from "@veil-dev/sdk";
 
 // Generate IDs
 const scheduleId = generateScheduleId();
@@ -75,7 +75,7 @@ const signature = await client.createSchedule({
 Pause or resume a schedule.
 
 ```typescript
-import { getVaultPda, getSchedulePda } from "@veil/sdk";
+import { getVaultPda, getSchedulePda } from "@veil-dev/sdk";
 
 const [vaultPda] = getVaultPda(wallet.publicKey);
 const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
@@ -134,7 +134,7 @@ Derive program addresses without making RPC calls.
 import {
   getVaultPda,
   getSchedulePda,
-} from "@veil/sdk";
+} from "@veil-dev/sdk";
 
 // Vault for an employer
 const [vaultPda, vaultBump] = getVaultPda(employerPubkey);

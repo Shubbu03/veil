@@ -7,7 +7,7 @@ import {
     getConfigPda,
     getVaultPda,
     getVaultAtaPda,
-} from "@veil/sdk";
+} from "@veil-dev/sdk";
 import * as fs from "fs";
 import * as path from "path";
 

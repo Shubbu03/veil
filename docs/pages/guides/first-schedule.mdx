@@ -14,7 +14,7 @@ Step-by-step guide to creating your first payment schedule.
 ```typescript
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { Wallet, BN } from "@coral-xyz/anchor";
-import { VeilClient } from "@veil/sdk";
+import { VeilClient } from "@veil-dev/sdk";
 
 const connection = new Connection("https://api.devnet.solana.com");
 const wallet = new Wallet(keypair);
@@ -106,7 +106,7 @@ console.log("Registered:", data);
 ```typescript
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { Wallet, BN } from "@coral-xyz/anchor";
-import { VeilClient, getVaultPda, getSchedulePda } from "@veil/sdk";
+import { VeilClient, getVaultPda, getSchedulePda } from "@veil-dev/sdk";
 
 async function createFirstSchedule() {
   // Setup

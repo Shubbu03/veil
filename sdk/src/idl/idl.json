@@ -526,38 +526,38 @@
             "program": {
               "kind": "const",
               "value": [
-                84,
-                58,
-                125,
-                84,
-                242,
-                22,
-                81,
-                53,
-                78,
-                161,
-                241,
-                182,
-                28,
-                191,
-                135,
-                114,
-                58,
-                123,
-                58,
-                82,
-                30,
-                104,
-                64,
-                160,
-                6,
-                43,
-                49,
-                197,
-                225,
-                234,
-                157,
-                95
+                83,
+                112,
+                204,
+                130,
+                11,
+                111,
+                213,
+                19,
+                178,
+                228,
+                88,
+                54,
+                162,
+                16,
+                66,
+                210,
+                106,
+                186,
+                97,
+                109,
+                17,
+                99,
+                118,
+                108,
+                89,
+                107,
+                40,
+                245,
+                159,
+                209,
+                122,
+                129
               ]
             }
           }
@@ -643,7 +643,7 @@
         },
         {
           "name": "owner_program",
-          "address": "6fnyZCuDriRnak18b4mrg9y2Z3gy2P9QByqVYSauYWX8"
+          "address": "6cibjMX1UwnqSxRkiSBp89NV5Z8Ws3M9i5kizxm8ZnTS"
         },
         {
           "name": "delegation_program",
@@ -750,38 +750,38 @@
             "program": {
               "kind": "const",
               "value": [
-                84,
-                58,
-                125,
-                84,
-                242,
-                22,
-                81,
-                53,
-                78,
-                161,
-                241,
-                182,
-                28,
-                191,
-                135,
-                114,
-                58,
-                123,
-                58,
-                82,
-                30,
-                104,
-                64,
-                160,
-                6,
-                43,
-                49,
-                197,
-                225,
-                234,
-                157,
-                95
+                83,
+                112,
+                204,
+                130,
+                11,
+                111,
+                213,
+                19,
+                178,
+                228,
+                88,
+                54,
+                162,
+                16,
+                66,
+                210,
+                106,
+                186,
+                97,
+                109,
+                17,
+                99,
+                118,
+                108,
+                89,
+                107,
+                40,
+                245,
+                159,
+                209,
+                122,
+                129
               ]
             }
           }
@@ -867,7 +867,7 @@
         },
         {
           "name": "owner_program",
-          "address": "6fnyZCuDriRnak18b4mrg9y2Z3gy2P9QByqVYSauYWX8"
+          "address": "6cibjMX1UwnqSxRkiSBp89NV5Z8Ws3M9i5kizxm8ZnTS"
         },
         {
           "name": "delegation_program",
@@ -2023,6 +2023,11 @@
       "code": 6023,
       "name": "InvalidBatchTimeout",
       "msg": "Invalid batch timeout - must be between 1 hour and 30 days"
+    },
+    {
+      "code": 6024,
+      "name": "BatchAmountExceeded",
+      "msg": "Batch amount would exceed per_execution_amount"
     }
   ],
   "types": [
@@ -2209,6 +2214,10 @@
                 128
               ]
             }
+          },
+          {
+            "name": "paid_amount_this_batch",
+            "type": "u64"
           },
           {
             "name": "last_executed_batch",

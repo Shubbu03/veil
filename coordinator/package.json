@@ -17,7 +17,7 @@
     "@coral-xyz/anchor": "^0.30.1",
     "@solana/spl-token": "^0.4.8",
     "@solana/web3.js": "^1.95.0",
-    "@veil/sdk": "file:../sdk",
+    "@veil-dev/sdk": "file:../sdk",
     "dotenv": "^16.4.0",
     "drizzle-orm": "^0.45.1",
     "express": "^4.18.0",

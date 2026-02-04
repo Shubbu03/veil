@@ -7,7 +7,7 @@ Build and verify Merkle trees for recipient lists.
 Build a Merkle tree from recipient list.
 
 ```typescript
-import { buildMerkleTree, Recipient } from "@veil/sdk";
+import { buildMerkleTree, Recipient } from "@veil-dev/sdk";
 import { PublicKey } from "@solana/web3.js";
 
 const recipients: Recipient[] = [
@@ -31,7 +31,7 @@ const { root, proofs } = buildMerkleTree(recipients);
 Get Merkle proof for a specific recipient.
 
 ```typescript
-import { getProofForRecipient, findRecipientIndex } from "@veil/sdk";
+import { getProofForRecipient, findRecipientIndex } from "@veil-dev/sdk";
 
 const recipients = [
   { address: pubkey1, amount: 100_000n },
@@ -57,7 +57,7 @@ if (proof) {
 Verify a Merkle proof.
 
 ```typescript
-import { verifyProof, hashLeaf } from "@veil/sdk";
+import { verifyProof, hashLeaf } from "@veil-dev/sdk";
 
 const leaf = hashLeaf(recipientPubkey, amount);
 const isValid = verifyProof(leaf, proof, leafIndex, root);
@@ -86,7 +86,7 @@ const proofArrays = proofs[0].proof.map((p) => Array.from(p));
 ## Example: Complete Flow
 
 ```typescript
-import { buildMerkleTree, getProofForRecipient, findRecipientIndex } from "@veil/sdk";
+import { buildMerkleTree, getProofForRecipient, findRecipientIndex } from "@veil-dev/sdk";
 
 // 1. Build tree
 const recipients = [
@@ -114,7 +114,7 @@ if (proof) {
 Hash a recipient address and amount into a leaf.
 
 ```typescript
-import { hashLeaf } from "@veil/sdk";
+import { hashLeaf } from "@veil-dev/sdk";
 
 const leaf = hashLeaf(recipientPubkey, amount);
 // Returns: Buffer (32 bytes)

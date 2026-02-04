@@ -18,22 +18,22 @@ import { Tabs } from 'nextra/components'
 <Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
   <Tabs.Tab>
 ```bash
-npm install @veil/sdk
+npm install @veil-dev/sdk
 ```
   </Tabs.Tab>
   <Tabs.Tab>
 ```bash
-pnpm add @veil/sdk
+pnpm add @veil-dev/sdk
 ```
   </Tabs.Tab>
   <Tabs.Tab>
 ```bash
-yarn add @veil/sdk
+yarn add @veil-dev/sdk
 ```
   </Tabs.Tab>
   <Tabs.Tab>
 ```bash
-bun add @veil/sdk
+bun add @veil-dev/sdk
 ```
   </Tabs.Tab>
 </Tabs>
@@ -43,7 +43,7 @@ bun add @veil/sdk
 ```typescript
 import { Connection, Keypair } from "@solana/web3.js";
 import { Wallet } from "@coral-xyz/anchor";
-import { VeilClient } from "@veil/sdk";
+import { VeilClient } from "@veil-dev/sdk";
 
 // Connect to Solana (devnet for testing)
 const connection = new Connection("https://api.devnet.solana.com");

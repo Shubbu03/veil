@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import { PublicKey } from "@solana/web3.js";
 import { recipientStore } from "./store";
 import { ScheduleRecipientData } from "./types";
-import { buildMerkleTree, Recipient } from "@veil/sdk";
+import { buildMerkleTree, Recipient } from "@veil-dev/sdk";
 
 const router = express.Router();
 
