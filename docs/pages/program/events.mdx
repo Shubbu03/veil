@@ -1,0 +1,125 @@
+# Program Events
+
+Events emitted by the Veil program.
+
+## VaultCreated
+
+Emitted when a vault is created.
+
+```rust
+pub struct VaultCreated {
+    pub employer: Pubkey,
+    pub vault: Pubkey,
+    pub token_mint: Pubkey,
+}
+```
+
+## TokensDeposited
+
+Emitted when tokens are deposited.
+
+```rust
+pub struct TokensDeposited {
+    pub vault: Pubkey,
+    pub amount: u64,
+    pub available: u64,
+}
+```
+
+## TokensWithdrawn
+
+Emitted when tokens are withdrawn.
+
+```rust
+pub struct TokensWithdrawn {
+    pub vault: Pubkey,
+    pub amount: u64,
+    pub available: u64,
+}
+```
+
+## ScheduleCreated
+
+Emitted when a schedule is created.
+
+```rust
+pub struct ScheduleCreated {
+    pub schedule: Pubkey,
+    pub employer: Pubkey,
+    pub schedule_id: [u8; 32],
+    pub interval_secs: u64,
+    pub reserved_amount: u64,
+    pub total_recipients: u16,
+}
+```
+
+## SchedulePaused
+
+Emitted when a schedule is paused/resumed.
+
+```rust
+pub struct SchedulePaused {
+    pub schedule: Pubkey,
+    pub paused: bool,
+}
+```
+
+## ScheduleCancelled
+
+Emitted when a schedule is cancelled.
+
+```rust
+pub struct ScheduleCancelled {
+    pub schedule: Pubkey,
+    pub employer: Pubkey,
+    pub returned_amount: u64,
+}
+```
+
+## PaymentClaimed
+
+Emitted when a payment is claimed.
+
+```rust
+pub struct PaymentClaimed {
+    pub schedule: Pubkey,
+    pub recipient: Pubkey,
+    pub amount: u64,
+    pub leaf_index: u16,
+    pub paid_count: u16,
+}
+```
+
+## BatchCompleted
+
+Emitted when a batch execution completes.
+
+```rust
+pub struct BatchCompleted {
+    pub schedule: Pubkey,
+    pub batch_number: u64,
+    pub paid_count: u16,
+    pub next_execution: u64,
+}
+```
+
+## Listening to Events
+
+### Using Anchor
+
+```typescript
+const listener = program.addEventListener("PaymentClaimed", (event) => {
+  console.log("Payment claimed:", event);
+});
+```
+
+### Using Web3.js
+
+```typescript
+connection.onProgramAccountChange(
+  programId,
+  (accountInfo) => {
+    // Parse events from account data
+  }
+);
+```

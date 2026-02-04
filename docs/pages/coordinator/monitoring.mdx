@@ -1,0 +1,115 @@
+# Monitoring
+
+Monitor coordinator health and performance.
+
+## Base URL
+
+Replace `{COORDINATOR_URL}` with your coordinator service URL.
+
+**Local Development:**
+```
+http://localhost:3001/api
+```
+
+**Production:**
+```
+https://your-coordinator-domain.com/api
+```
+
+## Health Check
+
+Check coordinator status:
+
+**Example:**
+```bash
+curl {COORDINATOR_URL}/api/health
+```
+
+**Local Development Example:**
+```bash
+curl http://localhost:3001/api/health
+```
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "timestamp": 1234567890
+}
+```
+
+## Logs
+
+Monitor coordinator logs for execution status:
+
+```bash
+# Development
+yarn dev
+
+# Production
+yarn start
+```
+
+**Log Events:**
+- Schedule polling
+- Execution start/completion
+- Errors and retries
+- Database operations
+
+## Database Monitoring
+
+Use Drizzle Studio to inspect database:
+
+```bash
+yarn db:studio
+```
+
+**Tables:**
+- `schedules` - Registered schedules
+- `execution_history` - Claim execution history (if implemented)
+- `execution_jobs` - Job tracking (if implemented)
+
+## Metrics (Planned)
+
+Future metrics endpoint:
+
+**Endpoint:** `GET /api/metrics`
+
+**Example:**
+```bash
+curl {COORDINATOR_URL}/api/metrics
+```
+
+**Local Development Example:**
+```bash
+curl http://localhost:3001/api/metrics
+```
+
+**Metrics:**
+- Schedules polled
+- Schedules executed
+- Claims successful/failed
+- Last poll time
+
+## Troubleshooting
+
+### Coordinator not executing schedules
+
+- Check logs for errors
+- Verify database connection
+- Check ER authority keypair
+- Verify RPC connection
+
+### Database errors
+
+- Check `DATABASE_URL` in `.env`
+- Verify PostgreSQL is running
+- Run migrations: `yarn db:migrate`
+
+### ER connection errors
+
+- Verify `ER_RPC_URL` is correct
+- Check ER validator address
+- Ensure ER authority keypair exists
+

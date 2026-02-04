@@ -1,0 +1,87 @@
+# Installation
+
+Install the Veil SDK to interact with the protocol.
+
+import { Tabs } from 'nextra/components'
+
+## Install
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
+  <Tabs.Tab>
+```bash
+npm install @veil/sdk
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+pnpm add @veil/sdk
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+yarn add @veil/sdk
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+bun add @veil/sdk
+```
+  </Tabs.Tab>
+</Tabs>
+
+## Prerequisites
+
+- Node.js 18+
+- Solana Web3.js
+- Anchor (for BN types)
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
+  <Tabs.Tab>
+```bash
+npm install @solana/web3.js @coral-xyz/anchor
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+pnpm add @solana/web3.js @coral-xyz/anchor
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+yarn add @solana/web3.js @coral-xyz/anchor
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+bun add @solana/web3.js @coral-xyz/anchor
+```
+  </Tabs.Tab>
+</Tabs>
+
+## Setup
+
+```typescript
+import { Connection, Keypair } from "@solana/web3.js";
+import { Wallet } from "@coral-xyz/anchor";
+import { VeilClient } from "@veil/sdk";
+
+// Connect to Solana
+const connection = new Connection("https://api.devnet.solana.com");
+
+// Your wallet
+const keypair = Keypair.fromSecretKey(/* your secret key */);
+const wallet = new Wallet(keypair);
+
+// Create client
+const client = new VeilClient({ connection, wallet });
+```
+
+## Development
+
+If building from source:
+
+```bash
+cd sdk
+yarn install
+yarn build
+```

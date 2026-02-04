@@ -1,0 +1,65 @@
+# VeilClient
+
+The main client class for interacting with Veil.
+
+## Constructor
+
+```typescript
+import { VeilClient } from "@veil/sdk";
+import { Connection } from "@solana/web3.js";
+import { Wallet } from "@coral-xyz/anchor";
+
+const client = new VeilClient({
+  connection: Connection,
+  wallet: Wallet,
+});
+```
+
+**Parameters:**
+- `connection` - Solana RPC connection
+- `wallet` - Anchor wallet (must be signer)
+
+## Properties
+
+```typescript
+client.connection  // Solana Connection
+client.wallet      // Anchor Wallet
+client.program     // Anchor Program instance
+```
+
+## Methods Overview
+
+### Vault Operations
+- `initVault(mint: PublicKey)` - Create a vault
+- `deposit(amount: BN, mint: PublicKey)` - Deposit tokens
+- `withdraw(amount: BN, mint: PublicKey)` - Withdraw tokens
+- `getVault()` - Get vault state
+
+### Schedule Operations
+- `createSchedule(params)` - Create schedule (advanced)
+- `createScheduleFromRecipients(params)` - Create schedule (simple)
+- `pauseSchedule(schedulePda: PublicKey, paused: boolean)` - Pause/resume
+- `cancelSchedule(schedulePda: PublicKey)` - Cancel schedule
+- `getSchedule(schedulePda: PublicKey)` - Get schedule state
+
+### Config
+- `getConfig()` - Get global protocol config
+
+### Claim Payment
+- `claimPayment(...)` - Claim payment (for ER authority)
+
+## Example
+
+```typescript
+import { VeilClient } from "@veil/sdk";
+import { Connection, Keypair } from "@solana/web3.js";
+import { Wallet } from "@coral-xyz/anchor";
+
+const connection = new Connection("https://api.devnet.solana.com");
+const wallet = new Wallet(keypair);
+
+const client = new VeilClient({ connection, wallet });
+
+// Use client methods...
+await client.initVault(tokenMint);
+```

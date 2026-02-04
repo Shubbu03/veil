@@ -1,0 +1,140 @@
+# Merkle Tree Utils
+
+Build and verify Merkle trees for recipient lists.
+
+## Build Tree
+
+Build a Merkle tree from recipient list.
+
+```typescript
+import { buildMerkleTree, Recipient } from "@veil/sdk";
+import { PublicKey } from "@solana/web3.js";
+
+const recipients: Recipient[] = [
+  { address: new PublicKey("..."), amount: 100_000n },
+  { address: new PublicKey("..."), amount: 200_000n },
+  { address: new PublicKey("..."), amount: 150_000n },
+];
+
+const { root, proofs } = buildMerkleTree(recipients);
+
+// root: Buffer (32 bytes) - store on-chain
+// proofs: array of { leafIndex, proof } for each recipient
+```
+
+**Returns:**
+- `root` - Merkle root (Buffer, 32 bytes)
+- `proofs` - Array of `{ leafIndex: number, proof: Buffer[] }`
+
+## Get Proof for Recipient
+
+Get Merkle proof for a specific recipient.
+
+```typescript
+import { getProofForRecipient, findRecipientIndex } from "@veil/sdk";
+
+const recipients = [
+  { address: pubkey1, amount: 100_000n },
+  { address: pubkey2, amount: 200_000n },
+];
+
+// Find index by address
+const index = findRecipientIndex(recipients, pubkey1);
+
+// Get proof
+const proof = getProofForRecipient(recipients, index);
+
+if (proof) {
+  console.log("Leaf Index:", proof.leafIndex);
+  console.log("Proof:", proof.proof.map((p) => Array.from(p)));
+}
+```
+
+**Returns:** `{ leafIndex: number, proof: Buffer[] } | null`
+
+## Verify Proof
+
+Verify a Merkle proof.
+
+```typescript
+import { verifyProof, hashLeaf } from "@veil/sdk";
+
+const leaf = hashLeaf(recipientPubkey, amount);
+const isValid = verifyProof(leaf, proof, leafIndex, root);
+```
+
+**Parameters:**
+- `leaf` - Hashed leaf (Buffer)
+- `proof` - Merkle proof (Buffer[])
+- `leafIndex` - Leaf index in tree
+- `root` - Merkle root (Buffer)
+
+**Returns:** `boolean`
+
+## Convert for On-Chain
+
+Convert Merkle data for on-chain instructions.
+
+```typescript
+// Merkle root as number array (for instruction)
+const merkleRootArray = Array.from(root);
+
+// Proof as array of number arrays
+const proofArrays = proofs[0].proof.map((p) => Array.from(p));
+```
+
+## Example: Complete Flow
+
+```typescript
+import { buildMerkleTree, getProofForRecipient, findRecipientIndex } from "@veil/sdk";
+
+// 1. Build tree
+const recipients = [
+  { address: recipient1, amount: 100_000n },
+  { address: recipient2, amount: 200_000n },
+];
+const { root, proofs } = buildMerkleTree(recipients);
+
+// 2. Store root on-chain (when creating schedule)
+const merkleRootArray = Array.from(root);
+
+// 3. Get proof for specific recipient
+const recipientIndex = findRecipientIndex(recipients, recipient1);
+const proof = getProofForRecipient(recipients, recipientIndex);
+
+if (proof) {
+  // 4. Use proof for claim_payment
+  const proofArrays = proof.proof.map((p) => Array.from(p));
+  // ... use in claim_payment instruction
+}
+```
+
+## Hash Leaf
+
+Hash a recipient address and amount into a leaf.
+
+```typescript
+import { hashLeaf } from "@veil/sdk";
+
+const leaf = hashLeaf(recipientPubkey, amount);
+// Returns: Buffer (32 bytes)
+```
+
+**Parameters:**
+- `address` - Recipient public key (PublicKey)
+- `amount` - Payment amount (bigint)
+
+**Returns:** Buffer (32 bytes)
+
+## Tree Structure
+
+```
+        Root (stored on-chain)
+       /              \
+    Hash(0-1)      Hash(2-3)
+    /      \        /      \
+  Leaf0  Leaf1  Leaf2    Leaf3
+```
+
+Each leaf = `hash(recipient_address || amount)`
+

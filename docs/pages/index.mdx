@@ -1,0 +1,135 @@
+# Veil
+
+**Privacy-preserving payment protocol for Solana**
+
+Veil enables private, scheduled payments where recipient lists and amounts are hidden using Merkle trees and executed privately in TEE (Trusted Execution Environment) via [MagicBlock Ephemeral Rollups](https://docs.magicblock.gg/pages/ephemeral-rollups-ers/how-to-guide/quickstart).
+
+---
+
+## Why Veil?
+
+On-chain payments on Solana are fully transparent — anyone can see who gets paid, how much, and when. For businesses running payroll, subscription services, or recurring payments, this lack of privacy is a dealbreaker.
+
+**Veil solves this** by:
+- **Hiding recipient lists** - Only Merkle roots stored on-chain
+- **Private execution** - Claims executed in TEE via MagicBlock ER
+- **Scheduled payments** - Recurring payments with configurable intervals
+- **On-chain settlement** - Final state committed back to Solana
+
+---
+
+## Key Features
+
+-  **Private Recipient Lists** - Merkle tree-based privacy
+-  **Scheduled Payments** - Recurring payments with configurable intervals
+-  **TEE Execution** - Private execution via MagicBlock Ephemeral Rollups
+-  **On-Chain Settlement** - Final state committed to Solana
+
+---
+
+## Quick Start
+
+Get started in 5 minutes:
+
+import { Tabs } from 'nextra/components'
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
+  <Tabs.Tab>
+```bash
+npm install @veil/sdk
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+pnpm add @veil/sdk
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+yarn add @veil/sdk
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+bun add @veil/sdk
+```
+  </Tabs.Tab>
+</Tabs>
+
+```typescript
+import { VeilClient } from "@veil/sdk";
+import { Connection, Keypair } from "@solana/web3.js";
+import { Wallet } from "@coral-xyz/anchor";
+
+const connection = new Connection("https://api.devnet.solana.com");
+const wallet = new Wallet(keypair);
+
+const client = new VeilClient({ connection, wallet });
+
+// Create vault
+await client.initVault(tokenMint);
+
+// Create payment schedule
+await client.createScheduleFromRecipients({
+  recipients: [
+    { address: recipient1, amount: 100_000n },
+    { address: recipient2, amount: 200_000n },
+  ],
+  intervalSecs: 86400, // Daily
+  reservedAmount: new BN(10_000_000),
+  perExecutionAmount: new BN(500_000),
+});
+```
+
+[Get Started →](/getting-started/quick-start)
+
+---
+
+## Architecture
+
+```
+┌─────────────────────┐
+│      Solana         │  ← Settlement layer (on-chain)
+│    Base Layer       │  ← Vaults, schedules, Merkle roots
+└─────────────────────┘
+          ↓
+┌─────────────────────┐
+│     ER Layer        │  ← Execution (private in TEE)
+│      (TEE)          │  ← Claim payments, hide recipients
+└─────────────────────┘
+          ↓
+┌─────────────────────┐
+│    Coordinator      │  ← Automation service
+│     (Server)        │  ← Monitors, delegates, executes
+└─────────────────────┘
+```
+
+[Learn more →](/getting-started/architecture)
+
+---
+
+## Use Cases
+
+- **Payroll** - Private employee payments
+- **Subscriptions** - Recurring subscription payments
+- **Vendor Payments** - Hide vendor relationships
+- **Token Vesting** - Private token distribution
+- **Dividends** - Private dividend payments
+
+---
+
+## Next Steps
+
+- [Quick Start Guide](/getting-started/quick-start) - Get up and running in 5 minutes
+- [SDK Reference](/sdk/installation) - Complete API documentation
+- [Architecture Overview](/getting-started/architecture) - Understand how Veil works
+- [Examples](/guides/first-schedule) - Step-by-step tutorials
+
+---
+
+## Resources
+
+- [GitHub Repository](https://github.com/Shubbu03/veil)
+- [Coordinator Setup](/coordinator/setup)
+- [Program Documentation](/program/instructions)
+- [FAQ](/resources/faq)

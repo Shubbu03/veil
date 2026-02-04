@@ -1,0 +1,171 @@
+# Troubleshooting
+
+Common issues and solutions.
+
+## SDK Issues
+
+### "Vault not found"
+
+**Problem:** Trying to use vault that doesn't exist.
+
+**Solution:**
+```typescript
+// Create vault first
+await client.initVault(tokenMint);
+```
+
+### "Insufficient funds"
+
+**Problem:** Not enough balance for operation.
+
+**Solution:**
+```typescript
+// Check vault balance
+const vault = await client.getVault();
+console.log("Available:", vault?.available.toString());
+console.log("Reserved:", vault?.reserved.toString());
+
+// Deposit more if needed
+await client.deposit(amount, tokenMint);
+```
+
+### "Schedule not active"
+
+**Problem:** Trying to execute paused/cancelled schedule.
+
+**Solution:**
+```typescript
+// Check schedule status
+const schedule = await client.getSchedule(schedulePda);
+console.log("Status:", schedule?.status);
+
+// Resume if paused
+if (schedule?.status === "paused") {
+  await client.pauseSchedule(schedulePda, false);
+}
+```
+
+## Coordinator Issues
+
+### "ECONNREFUSED" when registering
+
+**Problem:** Coordinator not running.
+
+**Solution:**
+```bash
+cd coordinator
+yarn dev
+```
+
+### "Database connection error"
+
+**Problem:** PostgreSQL not configured or running.
+
+**Solution:**
+```bash
+# Check PostgreSQL is running
+pg_isready
+
+# Create database
+createdb veil_coordinator
+
+# Run migrations
+cd coordinator
+yarn db:generate
+yarn db:migrate
+```
+
+### "ER authority keypair not found"
+
+**Problem:** ER authority keypair missing.
+
+**Solution:**
+```bash
+# Generate keypair
+solana-keygen new -o er-authority-keypair.json
+
+# Update .env
+ER_AUTHORITY_KEYPAIR_PATH=./er-authority-keypair.json
+```
+
+## Transaction Issues
+
+### Transaction fails silently
+
+**Problem:** Transaction simulation failed.
+
+**Solution:**
+- Check wallet has SOL for fees
+- Verify program is deployed
+- Check RPC connection
+
+### "Blockhash not found"
+
+**Problem:** Transaction expired.
+
+**Solution:**
+- Retry transaction
+- Get fresh blockhash
+
+### "Insufficient funds for fees"
+
+**Problem:** Wallet doesn't have SOL.
+
+**Solution:**
+```bash
+# Airdrop on devnet
+solana airdrop 2
+
+# Or transfer SOL to wallet
+```
+
+## Program Issues
+
+### "Program not found"
+
+**Problem:** Program not deployed or wrong program ID.
+
+**Solution:**
+- Verify program is deployed
+- Check program ID matches
+- Redeploy if needed
+
+### "Invalid account"
+
+**Problem:** Wrong account passed to instruction.
+
+**Solution:**
+- Verify PDA derivation
+- Check account ownership
+- Use SDK helpers for PDAs
+
+## Merkle Tree Issues
+
+### "Invalid Merkle proof"
+
+**Problem:** Proof doesn't match root.
+
+**Solution:**
+```typescript
+// Rebuild tree with same recipients
+const { root, proofs } = buildMerkleTree(recipients);
+
+// Verify proof
+const isValid = verifyProof(leaf, proof, leafIndex, root);
+```
+
+### "Recipient not found"
+
+**Problem:** Recipient not in Merkle tree.
+
+**Solution:**
+- Verify recipient is in original list
+- Check address matches exactly
+- Rebuild tree if recipients changed
+
+## Getting Help
+
+- Check [FAQ](/resources/faq) for common questions
+- Review [SDK Reference](/sdk/installation) for API details
+- Open an issue on [GitHub](https://github.com/Shubbu03/veil)
+

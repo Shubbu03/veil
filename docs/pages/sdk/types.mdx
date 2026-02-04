@@ -1,0 +1,150 @@
+# Types & Errors
+
+TypeScript types and error handling.
+
+## Types
+
+### VaultAccount
+
+```typescript
+interface VaultAccount {
+  employer: PublicKey;
+  tokenMint: PublicKey;
+  available: BN;
+  reserved: BN;
+  vaultAta: PublicKey;
+  bump: number;
+}
+```
+
+### ScheduleAccount
+
+```typescript
+interface ScheduleAccount {
+  employer: PublicKey;
+  vault: PublicKey;
+  scheduleId: number[];
+  status: ScheduleStatus;
+  intervalSecs: BN;
+  reservedAmount: BN;
+  perExecutionAmount: BN;
+  merkleRoot: number[];
+  totalRecipients: number;
+  nextExecution: BN;
+  lastExecutedBatch: BN;
+  paidCount: number;
+  paidBitmap: number[];
+  batchStartTime: BN;
+  erJobId: number[];
+  bump: number;
+}
+```
+
+### ScheduleStatus
+
+```typescript
+enum ScheduleStatus {
+  Active = "active",
+  Paused = "paused",
+  Cancelled = "cancelled",
+}
+```
+
+### Recipient
+
+```typescript
+interface Recipient {
+  address: PublicKey;
+  amount: bigint;
+}
+```
+
+### CreateScheduleParams
+
+```typescript
+interface CreateScheduleParams {
+  scheduleId: number[];
+  intervalSecs: number;
+  reservedAmount: BN;
+  perExecutionAmount: BN;
+  merkleRoot: number[];
+  totalRecipients: number;
+  erJobId: number[];
+}
+```
+
+### VeilConfig
+
+```typescript
+interface VeilConfig {
+  erAuthority: PublicKey;
+  governance: PublicKey;
+  paused: boolean;
+  allowedMint: PublicKey;
+  maxRecipients: number;
+  batchTimeoutSecs: BN;
+}
+```
+
+## Error Handling
+
+### Anchor Errors
+
+Veil uses Anchor error codes. Common errors:
+
+```typescript
+try {
+  await client.deposit(amount, tokenMint);
+} catch (error) {
+  // Anchor errors include error code
+  if (error.message.includes("InsufficientFunds")) {
+    console.log("Not enough tokens");
+  } else if (error.message.includes("Paused")) {
+    console.log("Protocol is paused");
+  } else if (error.message.includes("Unauthorized")) {
+    console.log("Not authorized");
+  } else if (error.message.includes("ScheduleNotActive")) {
+    console.log("Schedule is not active");
+  }
+}
+```
+
+### Common Error Codes
+
+- `InsufficientFunds` - Not enough balance
+- `Paused` - Protocol is paused
+- `Unauthorized` - Not authorized to perform action
+- `ScheduleNotActive` - Schedule is not active
+- `InvalidMerkleProof` - Merkle proof verification failed
+- `AlreadyPaid` - Recipient already claimed
+- `InvalidMaxRecipients` - Too many recipients
+
+### Error Checking
+
+```typescript
+import { AnchorError } from "@coral-xyz/anchor";
+
+try {
+  await client.createSchedule(...);
+} catch (err) {
+  if (err instanceof AnchorError) {
+    console.log("Error code:", err.error.errorCode.code);
+    console.log("Error message:", err.error.errorMessage);
+  }
+}
+```
+
+## Type Exports
+
+All types are exported from the SDK:
+
+```typescript
+import {
+  VaultAccount,
+  ScheduleAccount,
+  ScheduleStatus,
+  Recipient,
+  CreateScheduleParams,
+  VeilConfig,
+} from "@veil/sdk";
+```

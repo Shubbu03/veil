@@ -1,0 +1,150 @@
+# Architecture
+
+Veil's architecture consists of three main layers working together to enable private payments.
+
+## Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              Solana Base Layer                          │
+│  • Vault accounts (token storage)                       │
+│  • Schedule accounts (payment configs)                  │
+│  • Merkle roots (hidden recipient lists)                │
+│  • Final settlement state                               │
+└─────────────────────────────────────────────────────────┘
+                        │
+                        ↓ Delegate Schedule
+┌─────────────────────────────────────────────────────────┐
+│         MagicBlock Ephemeral Rollup                     │
+│              (TEE Execution)                            │
+│  • Private claim_payment execution                      │
+│  • Recipient list never exposed                         │
+│  • Batch processing                                     │
+└─────────────────────────────────────────────────────────┘
+                        │
+                        ↓ Commit State
+┌─────────────────────────────────────────────────────────┐
+│            Coordinator Service                          │
+│  • Monitors schedules for execution                     │
+│  • Delegates to ER                                      │
+│  • Executes claims                                      │
+│  • Commits final state                                  │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Components
+
+### 1. Solana Program (On-Chain)
+
+The Anchor program manages:
+- **Vaults** - Token accounts holding funds for schedules
+- **Schedules** - Payment configurations with Merkle roots
+- **Claims** - Verification and settlement of payments
+
+**Key Instructions:**
+- `init_vault` - Create a vault for an employer
+- `deposit` / `withdraw` - Manage vault balance
+- `create_schedule` - Create a payment schedule
+- `claim_payment` - Execute a payment (on ER)
+- `commit` - Finalize batch execution
+
+### 2. MagicBlock Ephemeral Rollup (ER)
+
+The ER layer provides:
+- **TEE Execution** - Private execution environment
+- **Privacy** - Recipient lists never exposed on-chain
+- **Batch Processing** - Multiple claims in one batch
+
+**Flow:**
+1. Coordinator delegates schedule to ER
+2. ER executes `claim_payment` for each recipient (private)
+3. ER commits final state back to Solana
+4. Coordinator undelegates schedule
+
+### 3. Coordinator Service
+
+The coordinator automates execution:
+- **Polling** - Checks for schedules due for execution
+- **Delegation** - Delegates schedules to ER
+- **Execution** - Triggers claim_payment for recipients
+- **Commitment** - Commits final state to Solana
+
+**API Endpoints:**
+- `POST /api/schedules` - Register a schedule
+- `GET /api/schedules/:id` - Get schedule data
+- `GET /api/health` - Health check
+
+## Payment Flow
+
+### 1. Schedule Creation
+
+```
+Employer → Create Schedule
+  ├─ Build Merkle tree from recipients
+  ├─ Store Merkle root on-chain
+  ├─ Reserve funds in vault
+  └─ Set execution interval
+```
+
+### 2. Execution Cycle
+
+```
+Coordinator → Poll for due schedules
+  ├─ Delegate schedule to ER
+  ├─ Execute claim_payment (private in TEE)
+  │   ├─ Verify Merkle proof
+  │   ├─ Transfer tokens
+  │   └─ Update paid bitmap
+  ├─ Commit final state to Solana
+  └─ Undelegate schedule
+```
+
+### 3. Batch Completion
+
+When all recipients claim or timeout:
+- Reserved amount decremented
+- Next execution time set
+- Paid bitmap reset
+
+## Privacy Model
+
+### What's Public (On-Chain)
+
+- Vault addresses
+- Schedule PDAs
+- Merkle roots (32 bytes)
+- Total recipients count
+- Execution intervals
+- Reserved amounts
+
+### What's Private (Off-Chain)
+
+- Individual recipient addresses
+- Individual payment amounts
+- Recipient order/index
+- Merkle proofs (stored in coordinator)
+
+### Merkle Tree Structure
+
+```
+        Root (on-chain)
+       /              \
+    Hash(0-1)      Hash(2-3)
+    /      \        /      \
+  Leaf0  Leaf1  Leaf2    Leaf3
+```
+
+Each leaf = `hash(recipient_address || amount)`
+
+## Security Considerations
+
+- **Merkle Proof Verification** - On-chain verification ensures only valid recipients can claim
+- **TEE Execution** - Private execution prevents recipient list exposure
+- **Reserved Amounts** - Funds locked until batch completion
+- **Batch Timeout** - Prevents indefinite waiting
+
+## Next Steps
+
+- [Core Concepts](/getting-started/concepts) - Learn about vaults, schedules, and Merkle trees
+- [Program Documentation](/program/instructions) - Detailed instruction reference
+- [Coordinator Setup](/coordinator/setup) - Deploy your own coordinator
