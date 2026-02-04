@@ -1,0 +1,135 @@
+# Quick Start
+
+Get Veil up and running in 5 minutes.
+
+## Prerequisites
+
+- Node.js 18+ and yarn/npm
+- Solana CLI installed
+- Wallet with SOL for transaction fees
+- Basic understanding of Solana and TypeScript
+
+## Installation
+
+Install the Veil SDK:
+
+import { Tabs } from 'nextra/components'
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
+  <Tabs.Tab>
+```bash
+npm install @veil/sdk
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+pnpm add @veil/sdk
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+yarn add @veil/sdk
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+bun add @veil/sdk
+```
+  </Tabs.Tab>
+</Tabs>
+
+## Setup
+
+```typescript
+import { Connection, Keypair } from "@solana/web3.js";
+import { Wallet } from "@coral-xyz/anchor";
+import { VeilClient } from "@veil/sdk";
+
+// Connect to Solana (devnet for testing)
+const connection = new Connection("https://api.devnet.solana.com");
+
+// Your wallet (employer)
+const keypair = Keypair.fromSecretKey(/* your secret key */);
+const wallet = new Wallet(keypair);
+
+// Create Veil client
+const client = new VeilClient({ connection, wallet });
+```
+
+## Step 1: Create a Vault
+
+A vault holds tokens for your payment schedules. Each wallet can have one vault per token mint.
+
+```typescript
+import { PublicKey } from "@solana/web3.js";
+
+const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+// Create vault
+const signature = await client.initVault(USDC_MINT);
+console.log("Vault created:", signature);
+```
+
+## Step 2: Deposit Tokens
+
+Deposit tokens into your vault:
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+
+const amount = new BN(1_000_000); // 1 USDC (6 decimals)
+
+const signature = await client.deposit(amount, USDC_MINT);
+console.log("Deposited:", signature);
+```
+
+## Step 3: Create a Payment Schedule
+
+Create a schedule with multiple recipients. The recipient list is hidden using a Merkle tree:
+
+```typescript
+const recipients = [
+  { address: new PublicKey("recipient1..."), amount: 100_000n },
+  { address: new PublicKey("recipient2..."), amount: 200_000n },
+  { address: new PublicKey("recipient3..."), amount: 200_000n },
+];
+
+const { signature, scheduleId, merkleRoot } =
+  await client.createScheduleFromRecipients({
+    recipients,
+    intervalSecs: 86400, // Daily (24 hours)
+    reservedAmount: new BN(10_000_000), // Total reserved: 10 USDC
+    perExecutionAmount: new BN(500_000), // Per cycle: 0.5 USDC
+  });
+
+console.log("Schedule created:", signature);
+console.log("Schedule ID:", scheduleId);
+```
+
+## Step 4: Register with Coordinator
+
+Register your schedule with the coordinator service for automatic execution:
+
+```typescript
+// Register schedule (requires coordinator running)
+const response = await fetch("your-coordinator-url/api/schedules", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    schedulePda: schedulePda.toString(),
+    scheduleId: Array.from(scheduleId),
+    vaultEmployer: wallet.publicKey.toString(),
+    tokenMint: USDC_MINT.toString(),
+    recipients: recipients.map((r) => ({
+      address: r.address.toString(),
+      amount: r.amount.toString(),
+    })),
+  }),
+});
+```
+
+## What's Next?
+
+- [Architecture Overview](/getting-started/architecture) - Understand how Veil works
+- [SDK Reference](/sdk/installation) - Complete API documentation
+- [Create Your First Schedule](/guides/first-schedule) - Detailed tutorial

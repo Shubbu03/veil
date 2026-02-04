@@ -1,0 +1,128 @@
+# Core Concepts
+
+Understanding the key concepts in Veil.
+
+## Vaults
+
+A **vault** is a token account that holds funds for payment schedules. Each employer wallet can have one vault per token mint.
+
+**Properties:**
+- Holds tokens (USDC, SOL, etc.)
+- Tracks available vs reserved balance
+- Owned by employer wallet
+
+**Lifecycle:**
+1. Create vault with `initVault()`
+2. Deposit tokens with `deposit()`
+3. Funds reserved when schedules created
+4. Withdraw available balance with `withdraw()`
+
+## Schedules
+
+A **schedule** defines a recurring payment plan with hidden recipients.
+
+**Key Fields:**
+- `scheduleId` - Unique identifier (32 bytes)
+- `intervalSecs` - Time between executions
+- `reservedAmount` - Total funds reserved
+- `perExecutionAmount` - Amount paid per cycle
+- `merkleRoot` - Root of recipient Merkle tree
+- `totalRecipients` - Number of recipients
+- `nextExecution` - Unix timestamp of next execution
+
+**Status:**
+- `Active` - Currently executing
+- `Paused` - Temporarily stopped
+- `Cancelled` - Terminated, funds returned
+
+## Merkle Trees
+
+**Merkle trees** hide recipient lists while allowing on-chain verification.
+
+### Structure
+
+```
+        Root (stored on-chain)
+       /              \
+    Hash(0-1)      Hash(2-3)
+    /      \        /      \
+  Leaf0  Leaf1  Leaf2    Leaf3
+```
+
+Each leaf = `hash(recipient_address || amount)`
+
+### Why Merkle Trees?
+
+- **Privacy** - Only root stored on-chain (32 bytes)
+- **Verification** - Proofs verify membership without revealing list
+- **Efficiency** - O(log n) proof size
+
+### Building a Tree
+
+```typescript
+import { buildMerkleTree } from "@veil/sdk";
+
+const recipients = [
+  { address: pubkey1, amount: 100_000n },
+  { address: pubkey2, amount: 200_000n },
+];
+
+const { root, proofs } = buildMerkleTree(recipients);
+// root: Buffer (32 bytes) - store on-chain
+// proofs: array of proofs for each recipient
+```
+
+## Batch Execution
+
+Payments execute in **batches**:
+
+1. **Batch Start** - First claim sets `batch_start_time`
+2. **Claims** - Recipients claim with Merkle proofs
+3. **Completion** - When all claim OR timeout reached
+4. **Settlement** - Reserved amount decremented, next execution set
+
+**Timeout:** Configurable (default: 7 days)
+
+## Ephemeral Rollups (ER)
+
+**MagicBlock ER** provides private execution:
+
+- **TEE** - Trusted Execution Environment
+- **Privacy** - Recipient list never exposed
+- **Batch Processing** - Multiple claims in one transaction
+
+**Flow:**
+1. Coordinator delegates schedule to ER
+2. ER executes `claim_payment` (private)
+3. ER commits state back to Solana
+4. Coordinator undelegates
+
+## Coordinator
+
+The **coordinator** automates execution:
+
+- Monitors schedules for execution time
+- Delegates to ER
+- Executes claims
+- Commits final state
+
+**Requirements:**
+- PostgreSQL database
+- ER authority keypair
+- Solana RPC connection
+
+## Reserved vs Available
+
+**Available** - Funds that can be withdrawn or used for new schedules
+
+**Reserved** - Funds locked for active schedules
+
+```
+Total Balance = Available + Reserved
+```
+
+When creating a schedule, funds move from `available` → `reserved`. When schedule completes or cancels, funds return to `available`.
+
+## Next Steps
+
+- [SDK Reference](/sdk/installation) - API documentation
