@@ -726,7 +726,7 @@
   dependencies:
     "@types/node" "*"
 
-"@veil/sdk@file:../sdk":
+"@veil-dev/sdk@file:../sdk":
   version "0.1.0"
   dependencies:
     "@coral-xyz/anchor" "^0.30.1"
