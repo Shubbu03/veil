@@ -6,4 +6,9 @@ const withNextra = nextra({
   defaultShowCopyCode: true,
 });
 
-export default withNextra();
+export default withNextra({
+  typescript: {
+    // Next 15's generated pages validator incorrectly treats Nextra _meta files as routes.
+    ignoreBuildErrors: true,
+  },
+});
