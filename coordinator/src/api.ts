@@ -1,8 +1,11 @@
 import express, { Request, Response } from "express";
-import { PublicKey } from "@solana/web3.js";
 import { recipientStore } from "./store";
 import { ScheduleRecipientData } from "./types";
-import { buildMerkleTree, Recipient } from "@veil-dev/sdk";
+import {
+    RegistrationValidationError,
+    RegisterScheduleRequest,
+    validateScheduleRegistration,
+} from "./registration";
 
 const router = express.Router();
 
@@ -10,52 +13,32 @@ const router = express.Router();
 // Register a schedule with recipient data
 router.post("/schedules", async (req: Request, res: Response) => {
     try {
-        const {
-            schedulePda,
-            scheduleId,
-            vaultEmployer,
-            tokenMint,
-            recipients,
-        }: {
-            schedulePda: string;
-            scheduleId: number[];
-            vaultEmployer: string;
-            tokenMint: string;
-            recipients: Array<{ address: string; amount: string }>;
-        } = req.body;
-
-        if (!schedulePda || !scheduleId || !vaultEmployer || !tokenMint || !recipients) {
-            return res.status(400).json({
-                error: "Missing required fields: schedulePda, scheduleId, vaultEmployer, tokenMint, recipients",
-            });
-        }
-
-        const recipientList: Recipient[] = recipients.map((r) => ({
-            address: new PublicKey(r.address),
-            amount: BigInt(r.amount),
-        }));
-
-        const { root, proofs } = buildMerkleTree(recipientList);
+        const validated = await validateScheduleRegistration(req.body as RegisterScheduleRequest);
 
         const data: ScheduleRecipientData = {
-            schedulePda,
-            scheduleId,
-            vaultEmployer,
-            tokenMint,
-            recipients: recipientList,
-            proofs,
-            merkleRoot: Array.from(root),
+            schedulePda: validated.schedulePda,
+            scheduleId: validated.scheduleId,
+            vaultEmployer: validated.vaultEmployer,
+            tokenMint: validated.tokenMint,
+            recipients: validated.recipients,
+            proofs: validated.proofs,
+            merkleRoot: validated.merkleRoot,
             createdAt: Date.now(),
         };
 
-        await recipientStore.set(schedulePda, data);
+        await recipientStore.set(validated.schedulePda, data);
 
         res.json({
             success: true,
-            schedulePda,
-            merkleRoot: Array.from(root),
+            schedulePda: validated.schedulePda,
+            merkleRoot: validated.merkleRoot,
         });
     } catch (error: any) {
+        if (error instanceof RegistrationValidationError) {
+            return res.status(error.statusCode).json({
+                error: error.message,
+            });
+        }
         console.error("Error registering schedule:", error);
         res.status(500).json({
             error: error.message || "Failed to register schedule",
@@ -115,4 +98,3 @@ router.get("/health", async (_req: Request, res: Response) => {
 });
 
 export default router;
-

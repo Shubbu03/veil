@@ -17,6 +17,10 @@ import {
     CreateScheduleParams,
 } from "./types";
 import IDL from "./idl/idl.json";
+import {
+    assertRecipientsMatchPerExecutionAmount,
+    assertValidCreateScheduleParams,
+} from "./validation";
 
 export interface VeilClientConfig {
     connection: Connection;
@@ -97,6 +101,8 @@ export class VeilClient {
     }
 
     async createSchedule(params: CreateScheduleParams): Promise<string> {
+        assertValidCreateScheduleParams(params);
+
         return await this.program.methods
             .createSchedule(
                 params.scheduleId,
@@ -122,6 +128,7 @@ export class VeilClient {
         const scheduleId = generateScheduleId();
         const erJobId = generateScheduleId();
         const { root } = buildMerkleTree(opts.recipients);
+        assertRecipientsMatchPerExecutionAmount(opts.recipients, opts.perExecutionAmount);
 
         const signature = await this.createSchedule({
             scheduleId,

@@ -3,7 +3,10 @@ use anchor_lang::prelude::*;
 use crate::error::VeilProgramError;
 use crate::events::ScheduleCreated;
 use crate::state::ScheduleStatus;
-use crate::{ScheduleAccount, VaultAccount, VeilConfig, ANCHOR_DISCRIMINATOR};
+use crate::{
+    ScheduleAccount, VaultAccount, VeilConfig, ANCHOR_DISCRIMINATOR,
+    MAX_SCHEDULE_INTERVAL_SECS, MAX_SCHEDULE_RECIPIENTS, MIN_SCHEDULE_INTERVAL_SECS,
+};
 
 #[derive(Accounts)]
 #[instruction(schedule_id: [u8; 32])]
@@ -49,20 +52,23 @@ impl<'info> CreateSchedule<'info> {
         er_job_id: [u8; 32],
     ) -> Result<()> {
         require!(!self.config.paused, VeilProgramError::Paused);
-        require!(interval_secs > 0, VeilProgramError::InvalidScheduleId);
-        require!(reserved_amount > 0, VeilProgramError::InsufficientFunds);
+        require!(
+            interval_secs >= MIN_SCHEDULE_INTERVAL_SECS
+                && interval_secs <= MAX_SCHEDULE_INTERVAL_SECS,
+            VeilProgramError::InvalidScheduleInterval
+        );
+        require!(reserved_amount > 0, VeilProgramError::InvalidReservedAmount);
         require!(
             per_execution_amount > 0,
-            VeilProgramError::InsufficientFunds
+            VeilProgramError::InvalidPerExecutionAmount
         );
         require!(total_recipients > 0, VeilProgramError::InvalidMaxRecipients);
         require!(
             total_recipients <= self.config.max_recipients,
             VeilProgramError::InvalidMaxRecipients
         );
-        // Bitmap capacity: 128 bytes * 8 bits = 1024 max recipients
         require!(
-            total_recipients <= 1024,
+            total_recipients <= MAX_SCHEDULE_RECIPIENTS,
             VeilProgramError::InvalidMaxRecipients
         );
         require!(
@@ -71,7 +77,7 @@ impl<'info> CreateSchedule<'info> {
         );
         require!(
             per_execution_amount <= reserved_amount,
-            VeilProgramError::InsufficientFunds
+            VeilProgramError::InvalidPerExecutionAmount
         );
 
         let clock = Clock::get()?;
