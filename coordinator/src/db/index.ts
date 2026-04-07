@@ -19,6 +19,12 @@ const queryClient = postgres(connectionString, {
 export const db = drizzle(queryClient, { schema });
 export { queryClient };
 export { schema };
-export { schedules } from './schema';
-export type { Schedule, NewSchedule } from './schema';
-
+export { executionAttempts, executionRuns, schedules } from "./schema";
+export type {
+    ExecutionAttemptRow,
+    ExecutionRunRow,
+    NewExecutionAttempt,
+    NewExecutionRun,
+    NewSchedule,
+    Schedule,
+} from "./schema";
