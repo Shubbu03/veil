@@ -6,6 +6,9 @@ import { startScheduler, stopScheduler } from "./scheduler";
 import apiRouter from "./api";
 import { db, queryClient } from "./db";
 import { sql } from "drizzle-orm";
+import { createLogger } from "./logger";
+
+const logger = createLogger("index");
 
 async function testDatabaseConnection(): Promise<boolean> {
     try {
@@ -13,28 +16,28 @@ async function testDatabaseConnection(): Promise<boolean> {
         await db.execute(sql`SELECT 1`);
         return true;
     } catch (error: any) {
-        console.error(`Database connection failed: ${error.message}`);
+        logger.error({ err: error }, "Database connection failed");
         return false;
     }
 }
 
 async function main() {
-    console.log("Starting Veil Coordinator...");
+    logger.info("Starting Veil Coordinator");
 
     // Test database connection first
     const dbConnected = await testDatabaseConnection();
     if (!dbConnected) {
-        console.error("Cannot start without database connection");
-        console.error("Please check your DATABASE_URL and ensure PostgreSQL is running");
+        logger.error("Cannot start without database connection");
+        logger.error("Please check your DATABASE_URL and ensure PostgreSQL is running");
         process.exit(1);
     }
 
     const solanaConnection = new Connection(config.solanaRpcUrl, "confirmed");
-    console.log(`Solana RPC: ${config.solanaRpcUrl}`);
+    logger.info({ solanaRpcUrl: config.solanaRpcUrl }, "Configured Solana RPC");
 
     const erAuthorityKeypair = config.getErAuthorityKeypair();
     const erAuthority = new Wallet(erAuthorityKeypair);
-    console.log(`ER Authority: ${erAuthority.publicKey.toString()}`);
+    logger.info({ erAuthority: erAuthority.publicKey.toString() }, "Loaded ER authority");
 
     const app = express();
     app.use(express.json());
@@ -45,49 +48,48 @@ async function main() {
     });
 
     const server = app.listen(config.port, () => {
-        console.log(`API server running on port ${config.port}`);
+        logger.info({ port: config.port }, "API server running");
     });
 
     startScheduler(solanaConnection, erAuthority);
 
     process.on("SIGINT", async () => {
-        console.log("\nShutting down...");
+        logger.info({ signal: "SIGINT" }, "Shutting down");
         stopScheduler();
 
         // Close database connection gracefully
         try {
             await queryClient.end();
-            console.log("Database connection closed");
+            logger.info("Database connection closed");
         } catch (error) {
-            console.error("Error closing database connection:", error);
+            logger.error({ err: error }, "Error closing database connection");
         }
 
         server.close(() => {
-            console.log("Coordinator stopped");
+            logger.info("Coordinator stopped");
             process.exit(0);
         });
     });
 
     process.on("SIGTERM", async () => {
-        console.log("\nShutting down (SIGTERM)...");
+        logger.info({ signal: "SIGTERM" }, "Shutting down");
         stopScheduler();
 
         try {
             await queryClient.end();
-            console.log("Database connection closed");
+            logger.info("Database connection closed");
         } catch (error) {
-            console.error("Error closing database connection:", error);
+            logger.error({ err: error }, "Error closing database connection");
         }
 
         server.close(() => {
-            console.log("Coordinator stopped");
+            logger.info("Coordinator stopped");
             process.exit(0);
         });
     });
 }
 
 main().catch((err) => {
-    console.error("Fatal error:", err);
+    logger.fatal({ err }, "Fatal error");
     process.exit(1);
 });
-

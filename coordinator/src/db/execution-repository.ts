@@ -2,6 +2,12 @@ import { and, asc, eq, inArray, lte, sql } from "drizzle-orm";
 import { db, executionAttempts, executionRuns, type ExecutionRunRow } from "./index";
 import { config } from "../config";
 import type { ExecutionRun, ExecutionRunStatus, ExecutionStageRecord } from "../types";
+import {
+    executionAttemptsTotal,
+    executionRunDurationSeconds,
+    executionRunsInProgress,
+    executionRunsTotal,
+} from "../metrics";
 
 const RUNNABLE_STATUSES: ExecutionRunStatus[] = ["pending", "failed"];
 
@@ -79,7 +85,12 @@ export class ExecutionRepository {
             )
             .returning();
 
-        return rows[0] ? mapExecutionRun(rows[0]) : null;
+        if (!rows[0]) {
+            return null;
+        }
+
+        executionRunsInProgress.inc();
+        return mapExecutionRun(rows[0]);
     }
 
     async recordStage(
@@ -87,6 +98,11 @@ export class ExecutionRepository {
         attemptNumber: number,
         record: ExecutionStageRecord
     ): Promise<void> {
+        executionAttemptsTotal.inc({
+            stage: record.stage,
+            status: record.status,
+        });
+
         await db
             .insert(executionAttempts)
             .values({
@@ -118,7 +134,7 @@ export class ExecutionRepository {
     }
 
     async completeRunSucceeded(
-        runId: number,
+        run: ExecutionRun,
         result: {
             claimedCount: number;
             alreadyPaidCount: number;
@@ -128,6 +144,11 @@ export class ExecutionRepository {
         }
     ): Promise<void> {
         const now = unixTimestamp();
+        const runDuration = run.startedAt ? Math.max(0, now - run.startedAt) : 0;
+        executionRunsTotal.inc({ status: "succeeded" });
+        executionRunDurationSeconds.observe({ status: "succeeded" }, runDuration);
+        executionRunsInProgress.dec();
+
         await db
             .update(executionRuns)
             .set({
@@ -141,7 +162,7 @@ export class ExecutionRepository {
                 commitSignature: result.commitSignature ?? null,
                 lastError: null,
             })
-            .where(eq(executionRuns.id, runId));
+            .where(eq(executionRuns.id, run.id));
     }
 
     async completeRunFailed(
@@ -162,11 +183,17 @@ export class ExecutionRepository {
         const nextAttemptAt = exhausted
             ? now
             : now + Math.ceil(getRetryDelayMs(run.attemptCount) / 1000);
+        const finalStatus = exhausted ? "exhausted" : "failed";
+        const runDuration = run.startedAt ? Math.max(0, now - run.startedAt) : 0;
+
+        executionRunsTotal.inc({ status: finalStatus });
+        executionRunDurationSeconds.observe({ status: finalStatus }, runDuration);
+        executionRunsInProgress.dec();
 
         await db
             .update(executionRuns)
             .set({
-                status: exhausted ? "exhausted" : "failed",
+                status: finalStatus,
                 finishedAt: now,
                 updatedAt: now,
                 nextAttemptAt,

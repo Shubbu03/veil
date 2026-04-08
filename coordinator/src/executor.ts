@@ -11,6 +11,7 @@ import {
 import * as fs from "fs";
 import * as path from "path";
 import type { ExecutionStageRecord } from "./types";
+import { createLogger } from "./logger";
 
 export interface ExecuteScheduleResult {
     status: "succeeded" | "failed";
@@ -22,6 +23,7 @@ export interface ExecuteScheduleResult {
     error?: string;
     retryable: boolean;
 }
+const logger = createLogger("executor");
 
 export async function executeSchedule(
     solanaConnection: Connection,
@@ -52,6 +54,14 @@ export async function executeSchedule(
     );
 
     if (!delegateResult.ok) {
+        logger.warn(
+            {
+                schedulePda: schedulePda.toString(),
+                stage: "delegate",
+                error: delegateResult.error,
+            },
+            "Delegate stage failed"
+        );
         return {
             status: "failed",
             claimedCount: 0,
@@ -62,6 +72,14 @@ export async function executeSchedule(
         };
     }
     delegateSignature = delegateResult.txSignature;
+    logger.info(
+        {
+            schedulePda: schedulePda.toString(),
+            stage: "delegate",
+            signature: delegateSignature,
+        },
+        "Delegate stage succeeded"
+    );
 
     const claimSummary = await executeClaimsOnER(erAuthority, schedulePda, scheduleId, recipientData);
     await onStageCompleted?.({
@@ -95,6 +113,23 @@ export async function executeSchedule(
 
     if (commitResult.ok) {
         commitSignature = commitResult.txSignature;
+        logger.info(
+            {
+                schedulePda: schedulePda.toString(),
+                stage: "commit",
+                signature: commitSignature,
+            },
+            "Commit stage succeeded"
+        );
+    } else {
+        logger.warn(
+            {
+                schedulePda: schedulePda.toString(),
+                stage: "commit",
+                error: commitResult.error,
+            },
+            "Commit stage failed"
+        );
     }
 
     const errors: string[] = [];
@@ -217,7 +252,15 @@ async function executeClaimsOnER(
 
             failedClaims += 1;
             failedRecipients.push(recipientPubkey.toString());
-            console.error(`Failed to claim for ${recipientPubkey.toString()}:`, errorMsg);
+            logger.error(
+                {
+                    schedulePda: schedulePda.toString(),
+                    recipient: recipientPubkey.toString(),
+                    stage: "claim",
+                    error: errorMsg,
+                },
+                "Failed to claim for recipient"
+            );
         }
     }
 

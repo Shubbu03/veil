@@ -4,6 +4,7 @@ import { buildMerkleTree, getSchedulePda, getVaultPda, Recipient } from "@veil-d
 import * as fs from "fs";
 import * as path from "path";
 import { config } from "./config";
+import { createLogger } from "./logger";
 
 const connection = new Connection(config.solanaRpcUrl, "confirmed");
 const readOnlyWallet = new Wallet(Keypair.generate());
@@ -13,6 +14,7 @@ const provider = new AnchorProvider(connection, readOnlyWallet, {
 const idlPath = path.resolve(__dirname, "../../sdk/src/idl/idl.json");
 const idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
 const program = new Program(idl as Idl, provider);
+const logger = createLogger("registration");
 
 export class RegistrationValidationError extends Error {
     constructor(
@@ -79,6 +81,7 @@ export async function validateScheduleRegistration(
     const [derivedVaultPda] = getVaultPda(employerPubkey);
     const [derivedSchedulePda] = getSchedulePda(derivedVaultPda, scheduleId);
     if (!schedulePubkey.equals(derivedSchedulePda)) {
+        logger.warn({ schedulePda, vaultEmployer }, "Schedule PDA does not match derived PDA");
         throw new RegistrationValidationError("schedulePda does not match vaultEmployer + scheduleId");
     }
 
@@ -93,18 +96,26 @@ export async function validateScheduleRegistration(
     );
 
     if (scheduleAccount.employer.toString() !== employerPubkey.toString()) {
+        logger.warn({ schedulePda, vaultEmployer }, "Vault employer mismatch against on-chain schedule");
         throw new RegistrationValidationError("vaultEmployer does not match the on-chain schedule");
     }
     if (scheduleAccount.vault.toString() !== derivedVaultPda.toString()) {
+        logger.warn({ schedulePda }, "Derived vault PDA mismatch against on-chain schedule");
         throw new RegistrationValidationError("on-chain schedule vault does not match derived vault PDA");
     }
     if (vaultAccount.employer.toString() !== employerPubkey.toString()) {
+        logger.warn({ schedulePda, vaultEmployer }, "Vault employer mismatch against on-chain vault");
         throw new RegistrationValidationError("vaultEmployer does not match the on-chain vault");
     }
     if (vaultAccount.tokenMint.toString() !== tokenMintPubkey.toString()) {
+        logger.warn({ schedulePda, tokenMint }, "Token mint mismatch against on-chain vault");
         throw new RegistrationValidationError("tokenMint does not match the on-chain vault");
     }
     if (scheduleAccount.totalRecipients !== recipientList.length) {
+        logger.warn(
+            { schedulePda, expected: scheduleAccount.totalRecipients, actual: recipientList.length },
+            "Recipient count mismatch against on-chain schedule"
+        );
         throw new RegistrationValidationError("recipient count does not match the on-chain schedule");
     }
 
@@ -114,6 +125,7 @@ export async function validateScheduleRegistration(
     }
 
     if (totalRecipientAmount !== BigInt(scheduleAccount.perExecutionAmount.toString())) {
+        logger.warn({ schedulePda }, "Recipient sum mismatch against on-chain perExecutionAmount");
         throw new RegistrationValidationError(
             "sum of recipient amounts must equal the on-chain perExecutionAmount"
         );
@@ -121,6 +133,7 @@ export async function validateScheduleRegistration(
 
     const { root, proofs } = buildMerkleTree(recipientList);
     if (!Buffer.from(root).equals(Buffer.from(scheduleAccount.merkleRoot))) {
+        logger.warn({ schedulePda }, "Computed Merkle root mismatch against on-chain schedule");
         throw new RegistrationValidationError("computed Merkle root does not match the on-chain schedule");
     }
 

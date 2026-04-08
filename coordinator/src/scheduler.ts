@@ -8,12 +8,20 @@ import * as fs from "fs";
 import * as path from "path";
 import { executionRepository } from "./db/execution-repository";
 import type { ExecutionRun } from "./types";
+import { createLogger } from "./logger";
+import {
+    claimsTotal,
+    schedulerDueSchedulesTotal,
+    schedulerPollDurationSeconds,
+    schedulerPollsTotal,
+} from "./metrics";
 
 let schedulerInterval: NodeJS.Timeout | null = null;
 let isPolling = false;
+const logger = createLogger("scheduler");
 
 export function startScheduler(connection: Connection, erAuthority: Wallet) {
-    console.log(`Starting scheduler (polling every ${config.pollIntervalMs}ms)`);
+    logger.info({ pollIntervalMs: config.pollIntervalMs }, "Starting scheduler");
 
     const poll = async () => {
         if (isPolling) {
@@ -21,11 +29,14 @@ export function startScheduler(connection: Connection, erAuthority: Wallet) {
         }
 
         isPolling = true;
+        schedulerPollsTotal.inc();
+        const stopTimer = schedulerPollDurationSeconds.startTimer();
         try {
             await pollDueSchedules(connection, erAuthority);
         } catch (error) {
-            console.error("Scheduler error:", error);
+            logger.error({ err: error }, "Scheduler error");
         } finally {
+            stopTimer();
             isPolling = false;
         }
     };
@@ -51,14 +62,15 @@ async function pollDueSchedules(connection: Connection, erAuthority: Wallet) {
     );
 
     if (dueSchedules > 0) {
-        console.log(`Synchronized ${dueSchedules} due schedule(s) into execution runs`);
+        schedulerDueSchedulesTotal.inc(dueSchedules);
+        logger.info({ dueSchedules }, "Synchronized due schedules into execution runs");
     }
 
     if (runnableRuns.length === 0) {
         return;
     }
 
-    console.log(`Found ${runnableRuns.length} execution run(s) ready to process`);
+    logger.info({ runnableRuns: runnableRuns.length }, "Found execution runs ready to process");
 
     for (const run of runnableRuns) {
         await processExecutionRun(connection, erAuthority, run);
@@ -115,6 +127,7 @@ async function processExecutionRun(
                 `recipient data missing for ${claimedRun.schedulePda}`,
                 { retryable: false }
             );
+            logger.warn({ schedulePda: claimedRun.schedulePda, runId: claimedRun.id }, "Recipient data missing for execution run");
             return;
         }
 
@@ -134,16 +147,33 @@ async function processExecutionRun(
         );
 
         if (result.status === "succeeded") {
-            await executionRepository.completeRunSucceeded(claimedRun.id, {
+            claimsTotal.inc({ status: "claimed" }, result.claimedCount);
+            claimsTotal.inc({ status: "already_paid" }, result.alreadyPaidCount);
+            claimsTotal.inc({ status: "failed" }, result.failedClaimCount);
+            await executionRepository.completeRunSucceeded(claimedRun, {
                 claimedCount: result.claimedCount,
                 alreadyPaidCount: result.alreadyPaidCount,
                 failedClaimCount: result.failedClaimCount,
                 delegateSignature: result.delegateSignature,
                 commitSignature: result.commitSignature,
             });
+            logger.info(
+                {
+                    schedulePda: claimedRun.schedulePda,
+                    runId: claimedRun.id,
+                    attempt: claimedRun.attemptCount,
+                    claimedCount: result.claimedCount,
+                    alreadyPaidCount: result.alreadyPaidCount,
+                    failedClaimCount: result.failedClaimCount,
+                },
+                "Execution run completed successfully"
+            );
             return;
         }
 
+        claimsTotal.inc({ status: "claimed" }, result.claimedCount);
+        claimsTotal.inc({ status: "already_paid" }, result.alreadyPaidCount);
+        claimsTotal.inc({ status: "failed" }, result.failedClaimCount);
         await executionRepository.completeRunFailed(claimedRun, result.error ?? "execution failed", {
             claimedCount: result.claimedCount,
             alreadyPaidCount: result.alreadyPaidCount,
@@ -152,12 +182,32 @@ async function processExecutionRun(
             commitSignature: result.commitSignature,
             retryable: result.retryable,
         });
+        logger.warn(
+            {
+                schedulePda: claimedRun.schedulePda,
+                runId: claimedRun.id,
+                attempt: claimedRun.attemptCount,
+                error: result.error,
+                claimedCount: result.claimedCount,
+                alreadyPaidCount: result.alreadyPaidCount,
+                failedClaimCount: result.failedClaimCount,
+            },
+            "Execution run failed"
+        );
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         await executionRepository.completeRunFailed(claimedRun, message, {
             retryable: true,
         });
-        console.error(`Failed to execute schedule ${claimedRun.schedulePda}:`, error);
+        logger.error(
+            {
+                err: error,
+                schedulePda: claimedRun.schedulePda,
+                runId: claimedRun.id,
+                attempt: claimedRun.attemptCount,
+            },
+            "Failed to execute schedule"
+        );
     }
 }
 
