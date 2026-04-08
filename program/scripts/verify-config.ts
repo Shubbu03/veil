@@ -27,7 +27,11 @@ async function main() {
         console.log("Config PDA:", configPda.toString());
         console.log("Governance:", config.governance.toString());
         console.log("ER Authority:", config.erAuthority.toString());
-        console.log("Allowed Mint:", config.allowedMint.toString());
+        console.log("Whitelist Enabled:", config.whitelistEnabled);
+        console.log(
+            "Allowed Mints:",
+            config.allowedMints.map((mint: PublicKey) => mint.toString()).join(", ")
+        );
         console.log("Max Recipients:", config.maxRecipients.toString());
         console.log("Paused:", config.paused);
     } catch (error) {
@@ -37,4 +41,3 @@ async function main() {
 }
 
 main().catch(console.error);
-

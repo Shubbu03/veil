@@ -36,7 +36,7 @@ describe("Schedule Instructions", () => {
             "confirmed"
         );
 
-        [vaultPda] = getVaultPda(employerWithVault.publicKey);
+        [vaultPda] = getVaultPda(employerWithVault.publicKey, ctx.allowedMint);
 
         await ctx.program.methods
             .initVault()
@@ -84,6 +84,7 @@ describe("Schedule Instructions", () => {
                 )
                 .accountsPartial({
                     employer: employerWithVault.publicKey,
+                    vault: vaultPda,
                 })
                 .signers([employerWithVault])
                 .rpc();
@@ -121,6 +122,7 @@ describe("Schedule Instructions", () => {
                     )
                     .accountsPartial({
                         employer: employerWithVault.publicKey,
+                        vault: vaultPda,
                     })
                     .signers([employerWithVault])
                     .rpc();
@@ -149,6 +151,7 @@ describe("Schedule Instructions", () => {
                     )
                     .accountsPartial({
                         employer: employerWithVault.publicKey,
+                        vault: vaultPda,
                     })
                     .signers([employerWithVault])
                     .rpc();
@@ -177,6 +180,7 @@ describe("Schedule Instructions", () => {
                     )
                     .accountsPartial({
                         employer: employerWithVault.publicKey,
+                        vault: vaultPda,
                     })
                     .signers([employerWithVault])
                     .rpc();
@@ -205,6 +209,7 @@ describe("Schedule Instructions", () => {
                     )
                     .accountsPartial({
                         employer: employerWithVault.publicKey,
+                        vault: vaultPda,
                     })
                     .signers([employerWithVault])
                     .rpc();
@@ -233,6 +238,7 @@ describe("Schedule Instructions", () => {
                     )
                     .accountsPartial({
                         employer: employerWithVault.publicKey,
+                        vault: vaultPda,
                     })
                     .signers([employerWithVault])
                     .rpc();
@@ -261,6 +267,7 @@ describe("Schedule Instructions", () => {
                     )
                     .accountsPartial({
                         employer: employerWithVault.publicKey,
+                        vault: vaultPda,
                     })
                     .signers([employerWithVault])
                     .rpc();
@@ -289,6 +296,7 @@ describe("Schedule Instructions", () => {
                     )
                     .accountsPartial({
                         employer: employerWithVault.publicKey,
+                        vault: vaultPda,
                     })
                     .signers([employerWithVault])
                     .rpc();
@@ -317,6 +325,7 @@ describe("Schedule Instructions", () => {
                     )
                     .accountsPartial({
                         employer: employerWithVault.publicKey,
+                        vault: vaultPda,
                     })
                     .signers([employerWithVault])
                     .rpc();
@@ -386,6 +395,7 @@ describe("Schedule Instructions", () => {
                 )
                 .accountsPartial({
                     employer: employerWithVault.publicKey,
+                    vault: vaultPda,
                 })
                 .signers([employerWithVault])
                 .rpc();
@@ -400,6 +410,8 @@ describe("Schedule Instructions", () => {
                 .cancelSchedule()
                 .accountsPartial({
                     employer: employerWithVault.publicKey,
+                    vault: vaultPda,
+                    schedule: schedulePda,
                 })
                 .signers([employerWithVault])
                 .rpc();
@@ -422,6 +434,8 @@ describe("Schedule Instructions", () => {
                     .cancelSchedule()
                     .accountsPartial({
                         employer: employerWithVault.publicKey,
+                        vault: vaultPda,
+                        schedule: schedulePda,
                     })
                     .signers([employerWithVault])
                     .rpc();
@@ -455,6 +469,7 @@ describe("Schedule Instructions", () => {
                 )
                 .accountsPartial({
                     employer: employerWithVault.publicKey,
+                    vault: vaultPda,
                 })
                 .signers([employerWithVault])
                 .rpc();

@@ -38,12 +38,14 @@ export interface VeilConfig {
     erAuthority: PublicKey;
     governance: PublicKey;
     paused: boolean;
+    whitelistEnabled: boolean;
     maxRecipients: number;
-    allowedMint: PublicKey;
+    allowedMints: PublicKey[];
     batchTimeoutSecs: BN;
 }
 
 export interface CreateScheduleParams {
+    tokenMint: PublicKey;
     scheduleId: number[];
     intervalSecs: number;
     reservedAmount: BN;
@@ -52,4 +54,3 @@ export interface CreateScheduleParams {
     totalRecipients: number;
     erJobId: number[];
 }
-

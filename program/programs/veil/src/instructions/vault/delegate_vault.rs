@@ -20,7 +20,7 @@ pub struct DelegateVault<'info> {
 
     #[account(
         mut,
-        seeds = [b"vault", vault.employer.as_ref()],
+        seeds = [b"vault", vault.employer.as_ref(), vault.token_mint.as_ref()],
         bump = vault.bump,
     )]
     pub vault: Account<'info, VaultAccount>,
@@ -41,8 +41,9 @@ impl<'info> DelegateVault<'info> {
         );
         
         let employer_key = self.vault.employer;
+        let token_mint = self.vault.token_mint;
         let bump = self.vault.bump;
-        let seeds = &[b"vault", employer_key.as_ref(), &[bump]];
+        let seeds = &[b"vault", employer_key.as_ref(), token_mint.as_ref(), &[bump]];
 
         // Delegate the vault PDA to ER using SDK's delegate_pda method
         // delegate_pda(payer, seeds, config)

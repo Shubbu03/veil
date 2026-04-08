@@ -2,3 +2,4 @@ pub static ANCHOR_DISCRIMINATOR: usize = 8;
 pub const MIN_SCHEDULE_INTERVAL_SECS: u64 = 60 * 60;
 pub const MAX_SCHEDULE_INTERVAL_SECS: u64 = 31 * 24 * 60 * 60;
 pub const MAX_SCHEDULE_RECIPIENTS: u16 = 1024;
+pub const MAX_ALLOWED_MINTS: usize = 16;

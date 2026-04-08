@@ -201,10 +201,10 @@ async function executeClaimsOnER(
     const erProgram = new Program(idl as Idl, erProvider);
 
     const vaultEmployer = new PublicKey(recipientData.vaultEmployer);
-    const [vaultPda] = getVaultPda(vaultEmployer);
+    const tokenMint = new PublicKey(recipientData.tokenMint);
+    const [vaultPda] = getVaultPda(vaultEmployer, tokenMint);
     const [vaultAtaPda] = getVaultAtaPda(vaultPda);
     const [configPda] = getConfigPda();
-    const tokenMint = new PublicKey(recipientData.tokenMint);
     let successfulClaims = 0;
     let alreadyPaidClaims = 0;
     let failedClaims = 0;

@@ -4,9 +4,18 @@ use anchor_lang::prelude::*;
 pub struct ConfigInitialized {
     pub governance: Pubkey,
     pub er_authority: Pubkey,
-    pub allowed_mint: Pubkey,
+    pub whitelist_enabled: bool,
+    pub allowed_mints: Vec<Pubkey>,
     pub max_recipients: u16,
     pub batch_timeout_secs: u64,
+}
+
+#[event]
+pub struct MintWhitelistUpdated {
+    pub governance: Pubkey,
+    pub whitelist_enabled: bool,
+    pub allowed_mints: Vec<Pubkey>,
+    pub timestamp: i64,
 }
 
 #[event]

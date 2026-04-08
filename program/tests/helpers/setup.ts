@@ -20,6 +20,7 @@ export interface TestContext {
     erAuthority: Keypair;
     employer: Keypair;
     allowedMint: PublicKey;
+    secondaryMint: PublicKey;
     configPda: PublicKey;
 }
 
@@ -47,6 +48,13 @@ export async function createTestContext(): Promise<TestContext> {
         null,
         6
     );
+    const secondaryMint = await createMint(
+        provider.connection,
+        provider.wallet.payer,
+        provider.wallet.publicKey,
+        null,
+        6
+    );
 
     return {
         provider,
@@ -56,6 +64,7 @@ export async function createTestContext(): Promise<TestContext> {
         erAuthority,
         employer,
         allowedMint,
+        secondaryMint,
         configPda,
     };
 }
@@ -63,19 +72,20 @@ export async function createTestContext(): Promise<TestContext> {
 export async function setupEmployerWithTokens(
     ctx: TestContext,
     employer: PublicKey,
-    amount: number
+    amount: number,
+    tokenMint: PublicKey = ctx.allowedMint
 ): Promise<PublicKey> {
     const ata = await createAssociatedTokenAccount(
         ctx.provider.connection,
         ctx.admin.payer,
-        ctx.allowedMint,
+        tokenMint,
         employer
     );
 
     await mintTo(
         ctx.provider.connection,
         ctx.admin.payer,
-        ctx.allowedMint,
+        tokenMint,
         ata,
         ctx.admin.publicKey,
         amount
@@ -84,9 +94,12 @@ export async function setupEmployerWithTokens(
     return ata;
 }
 
-export async function getEmployerAta(ctx: TestContext): Promise<PublicKey> {
+export async function getEmployerAta(
+    ctx: TestContext,
+    tokenMint: PublicKey = ctx.allowedMint
+): Promise<PublicKey> {
     const ata = await getAssociatedTokenAddress(
-        ctx.allowedMint,
+        tokenMint,
         ctx.employer.publicKey
     );
 
@@ -97,7 +110,7 @@ export async function getEmployerAta(ctx: TestContext): Promise<PublicKey> {
         return await createAssociatedTokenAccount(
             ctx.provider.connection,
             ctx.admin.payer,
-            ctx.allowedMint,
+            tokenMint,
             ctx.employer.publicKey
         );
     }
@@ -106,13 +119,17 @@ export async function getEmployerAta(ctx: TestContext): Promise<PublicKey> {
 export async function ensureConfigInitialized(ctx: TestContext): Promise<void> {
     try {
         const config = await ctx.program.account.veilConfig.fetch(ctx.configPda);
-        ctx.allowedMint = config.allowedMint;
+        ctx.allowedMint = config.allowedMints[0];
+        if (config.allowedMints.length > 1) {
+            ctx.secondaryMint = config.allowedMints[1];
+        }
     } catch {
         await ctx.program.methods
             .initConfig(
                 ctx.governance.publicKey,
                 ctx.erAuthority.publicKey,
-                ctx.allowedMint,
+                [ctx.allowedMint, ctx.secondaryMint],
+                true,
                 1024,
                 new BN(604800) // batch_timeout_secs: 7 days
             )
@@ -142,4 +159,3 @@ export async function ensurePaused(ctx: TestContext): Promise<void> {
             .rpc();
     }
 }
-

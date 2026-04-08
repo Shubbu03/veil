@@ -18,7 +18,7 @@ pub struct Withdraw<'info> {
 
     #[account(
         mut,
-        seeds = [b"vault", employer.key().as_ref()],
+        seeds = [b"vault", employer.key().as_ref(), token_mint.key().as_ref()],
         bump = vault.bump,
         has_one = employer @ VeilProgramError::Unauthorized,
         has_one = token_mint @ VeilProgramError::InvalidMint,
@@ -43,7 +43,7 @@ impl<'info> Withdraw<'info> {
     pub fn withdraw_from_vault(&mut self, amount: u64) -> Result<()> {
         require!(!self.config.paused, VeilProgramError::Paused);
         require!(
-            self.token_mint.key() == self.config.allowed_mint,
+            self.config.is_mint_allowed(&self.token_mint.key()),
             VeilProgramError::InvalidMint
         );
         require!(
@@ -62,8 +62,9 @@ impl<'info> Withdraw<'info> {
 
         // Transfer tokens from vault to employer
         let employer_key = self.employer.key();
+        let token_mint_key = self.token_mint.key();
         let bump = self.vault.bump;
-        let seeds = &[b"vault", employer_key.as_ref(), &[bump]];
+        let seeds = &[b"vault", employer_key.as_ref(), token_mint_key.as_ref(), &[bump]];
         let signer = &[&seeds[..]];
 
         let cpi_accounts = Transfer {
@@ -82,7 +83,8 @@ impl<'info> Withdraw<'info> {
             .checked_sub(amount)
             .ok_or(VeilProgramError::InsufficientFunds)?;
 
-        // Verify invariant: available + reserved == balance
+        // Refresh the vault ATA after the CPI so the invariant check uses the updated balance.
+        self.vault_ata.reload()?;
         let balance = self.vault_ata.amount;
         require!(
             self.vault

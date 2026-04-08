@@ -347,6 +347,10 @@
               {
                 "kind": "account",
                 "path": "employer"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
               }
             ]
           }
@@ -938,6 +942,10 @@
               {
                 "kind": "account",
                 "path": "employer"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
               }
             ]
           }
@@ -1025,8 +1033,14 @@
           "type": "pubkey"
         },
         {
-          "name": "allowed_mint",
-          "type": "pubkey"
+          "name": "allowed_mints",
+          "type": {
+            "vec": "pubkey"
+          }
+        },
+        {
+          "name": "whitelist_enabled",
+          "type": "bool"
         },
         {
           "name": "max_recipients",
@@ -1035,6 +1049,62 @@
         {
           "name": "batch_timeout_secs",
           "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "update_mint_whitelist",
+      "discriminator": [
+        108,
+        144,
+        147,
+        204,
+        49,
+        141,
+        161,
+        86
+      ],
+      "accounts": [
+        {
+          "name": "governance",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  101,
+                  105,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "whitelist_enabled",
+          "type": "bool"
+        },
+        {
+          "name": "allowed_mints",
+          "type": {
+            "vec": "pubkey"
+          }
         }
       ]
     },
@@ -1100,6 +1170,10 @@
               {
                 "kind": "account",
                 "path": "employer"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
               }
             ]
           }
@@ -2045,8 +2119,14 @@
             "type": "pubkey"
           },
           {
-            "name": "allowed_mint",
-            "type": "pubkey"
+            "name": "whitelist_enabled",
+            "type": "bool"
+          },
+          {
+            "name": "allowed_mints",
+            "type": {
+              "vec": "pubkey"
+            }
           },
           {
             "name": "max_recipients",
@@ -2075,6 +2155,32 @@
           {
             "name": "new_er_authority",
             "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MintWhitelistUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "governance",
+            "type": "pubkey"
+          },
+          {
+            "name": "whitelist_enabled",
+            "type": "bool"
+          },
+          {
+            "name": "allowed_mints",
+            "type": {
+              "vec": "pubkey"
+            }
           },
           {
             "name": "timestamp",
@@ -2553,12 +2659,18 @@
             "type": "bool"
           },
           {
+            "name": "whitelist_enabled",
+            "type": "bool"
+          },
+          {
             "name": "max_recipients",
             "type": "u16"
           },
           {
-            "name": "allowed_mint",
-            "type": "pubkey"
+            "name": "allowed_mints",
+            "type": {
+              "vec": "pubkey"
+            }
           },
           {
             "name": "batch_timeout_secs",

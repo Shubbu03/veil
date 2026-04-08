@@ -22,7 +22,7 @@ pub struct InitVault<'info> {
         init,
         payer = employer,
         space = ANCHOR_DISCRIMINATOR + VaultAccount::INIT_SPACE,
-        seeds = [b"vault", employer.key().as_ref()],
+        seeds = [b"vault", employer.key().as_ref(), token_mint.key().as_ref()],
         bump
     )]
     pub vault: Account<'info, VaultAccount>,
@@ -45,20 +45,21 @@ impl<'info> InitVault<'info> {
     pub fn init_vault(&mut self) -> Result<()> {
         require!(!self.config.paused, VeilProgramError::Paused);
         require!(
-            self.token_mint.key() == self.config.allowed_mint,
+            self.config.is_mint_allowed(&self.token_mint.key()),
             VeilProgramError::InvalidMint
         );
 
         // Derive bump from seeds - Anchor validates this matches
         let employer_key = self.employer.key();
+        let token_mint_key = self.token_mint.key();
         let program_id = self.vault.to_account_info().owner;
-        let seeds = &[b"vault", employer_key.as_ref()];
+        let seeds = &[b"vault", employer_key.as_ref(), token_mint_key.as_ref()];
         let (vault_pda, bump) = Pubkey::find_program_address(seeds, program_id);
         require!(
             vault_pda == self.vault.key(),
             VeilProgramError::VaultMismatch
         );
-        
+
         self.vault.set_inner(VaultAccount {
             employer: self.employer.key(),
             vault_ata: self.vault_ata.key(),

@@ -26,8 +26,9 @@ pub struct ClaimPayment<'info> {
 
     #[account(
         mut,
-        seeds = [b"vault", vault.employer.as_ref()],
+        seeds = [b"vault", vault.employer.as_ref(), vault.token_mint.as_ref()],
         bump = vault.bump,
+        has_one = token_mint @ VeilProgramError::InvalidMint,
     )]
     pub vault: Account<'info, VaultAccount>,
 
@@ -128,8 +129,9 @@ impl<'info> ClaimPayment<'info> {
         // Transfer tokens from vault_ata to recipient_ata
         // Use vault PDA as signer
         let employer_key = self.vault.employer;
+        let token_mint_key = self.vault.token_mint;
         let bump = self.vault.bump;
-        let seeds = &[b"vault", employer_key.as_ref(), &[bump]];
+        let seeds = &[b"vault", employer_key.as_ref(), token_mint_key.as_ref(), &[bump]];
         let signer = &[&seeds[..]];
 
         let cpi_accounts = Transfer {

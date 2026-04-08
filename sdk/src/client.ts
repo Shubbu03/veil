@@ -43,17 +43,22 @@ export class VeilClient {
     }
 
     async initVault(tokenMint: PublicKey): Promise<string> {
+        const [vaultPda] = getVaultPda(this.wallet.publicKey, tokenMint);
+        const [vaultAtaPda] = getVaultAtaPda(vaultPda);
+
         return await this.program.methods
             .initVault()
             .accountsPartial({
                 employer: this.wallet.publicKey,
                 tokenMint,
+                vault: vaultPda,
+                vaultAta: vaultAtaPda,
             })
             .rpc();
     }
 
     async deposit(amount: BN, tokenMint: PublicKey): Promise<string> {
-        const [vaultPda] = getVaultPda(this.wallet.publicKey);
+        const [vaultPda] = getVaultPda(this.wallet.publicKey, tokenMint);
         const [vaultAtaPda] = getVaultAtaPda(vaultPda);
         const employerAta = await getAssociatedTokenAddress(
             tokenMint,
@@ -64,6 +69,7 @@ export class VeilClient {
             .deposit(amount)
             .accountsPartial({
                 employer: this.wallet.publicKey,
+                vault: vaultPda,
                 vaultAta: vaultAtaPda,
                 employerAta,
                 tokenMint,
@@ -72,7 +78,7 @@ export class VeilClient {
     }
 
     async withdraw(amount: BN, tokenMint: PublicKey): Promise<string> {
-        const [vaultPda] = getVaultPda(this.wallet.publicKey);
+        const [vaultPda] = getVaultPda(this.wallet.publicKey, tokenMint);
         const [vaultAtaPda] = getVaultAtaPda(vaultPda);
         const employerAta = await getAssociatedTokenAddress(
             tokenMint,
@@ -83,6 +89,7 @@ export class VeilClient {
             .withdraw(amount)
             .accountsPartial({
                 employer: this.wallet.publicKey,
+                vault: vaultPda,
                 vaultAta: vaultAtaPda,
                 employerAta,
                 tokenMint,
@@ -90,8 +97,11 @@ export class VeilClient {
             .rpc();
     }
 
-    async getVault(employer?: PublicKey): Promise<VaultAccount | null> {
-        const [vaultPda] = getVaultPda(employer || this.wallet.publicKey);
+    async getVault(
+        tokenMint: PublicKey,
+        employer?: PublicKey
+    ): Promise<VaultAccount | null> {
+        const [vaultPda] = getVaultPda(employer || this.wallet.publicKey, tokenMint);
         try {
             const accounts = this.program.account as any;
             return await accounts.vaultAccount.fetch(vaultPda);
@@ -102,6 +112,7 @@ export class VeilClient {
 
     async createSchedule(params: CreateScheduleParams): Promise<string> {
         assertValidCreateScheduleParams(params);
+        const [vaultPda] = getVaultPda(this.wallet.publicKey, params.tokenMint);
 
         return await this.program.methods
             .createSchedule(
@@ -115,11 +126,13 @@ export class VeilClient {
             )
             .accountsPartial({
                 employer: this.wallet.publicKey,
+                vault: vaultPda,
             })
             .rpc();
     }
 
     async createScheduleFromRecipients(opts: {
+        tokenMint: PublicKey;
         recipients: Recipient[];
         intervalSecs: number;
         reservedAmount: BN;
@@ -131,6 +144,7 @@ export class VeilClient {
         assertRecipientsMatchPerExecutionAmount(opts.recipients, opts.perExecutionAmount);
 
         const signature = await this.createSchedule({
+            tokenMint: opts.tokenMint,
             scheduleId,
             intervalSecs: opts.intervalSecs,
             reservedAmount: opts.reservedAmount,
@@ -154,10 +168,16 @@ export class VeilClient {
     }
 
     async cancelSchedule(schedulePda: PublicKey): Promise<string> {
+        const schedule = await this.getSchedule(schedulePda);
+        if (!schedule) {
+            throw new Error("schedule not found");
+        }
+
         return await this.program.methods
             .cancelSchedule()
             .accountsPartial({
                 employer: this.wallet.publicKey,
+                vault: schedule.vault,
                 schedule: schedulePda,
             })
             .rpc();
@@ -189,16 +209,36 @@ export class VeilClient {
     async initConfig(
         governance: PublicKey,
         erAuthority: PublicKey,
-        allowedMint: PublicKey,
+        allowedMints: PublicKey[],
+        whitelistEnabled: boolean,
         maxRecipients: number,
         batchTimeoutSecs: number = 604800 // Default: 7 days
     ): Promise<string> {
         const [configPda] = getConfigPda();
 
         return await this.program.methods
-            .initConfig(governance, erAuthority, allowedMint, maxRecipients, batchTimeoutSecs)
+            .initConfig(
+                governance,
+                erAuthority,
+                allowedMints,
+                whitelistEnabled,
+                maxRecipients,
+                batchTimeoutSecs
+            )
             .accountsPartial({
                 admin: this.wallet.publicKey,
+            })
+            .rpc();
+    }
+
+    async updateMintWhitelist(
+        whitelistEnabled: boolean,
+        allowedMints: PublicKey[]
+    ): Promise<string> {
+        return await this.program.methods
+            .updateMintWhitelist(whitelistEnabled, allowedMints)
+            .accountsPartial({
+                governance: this.wallet.publicKey,
             })
             .rpc();
     }
@@ -214,7 +254,7 @@ export class VeilClient {
         tokenMint: PublicKey
     ): Promise<string> {
         const [configPda] = getConfigPda();
-        const [vaultPda] = getVaultPda(vaultEmployer);
+        const [vaultPda] = getVaultPda(vaultEmployer, tokenMint);
         const [vaultAtaPda] = getVaultAtaPda(vaultPda);
         const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
         const recipientAta = await getAssociatedTokenAddress(tokenMint, recipient);
