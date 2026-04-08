@@ -26,5 +26,11 @@ export const config = {
 
     port: parseInt(process.env.PORT || "3001", 10),
     pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS || "60000", 10),
+    maxExecutionAttempts: parseInt(process.env.MAX_EXECUTION_ATTEMPTS || "5", 10),
+    retryBaseDelayMs: parseInt(process.env.RETRY_BASE_DELAY_MS || "30000", 10),
+    retryMaxDelayMs: parseInt(process.env.RETRY_MAX_DELAY_MS || "7200000", 10),
+    maxRunnableExecutionsPerPoll: parseInt(
+        process.env.MAX_RUNNABLE_EXECUTIONS_PER_POLL || "10",
+        10
+    ),
 } as const;
-

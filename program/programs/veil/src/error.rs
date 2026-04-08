@@ -47,6 +47,15 @@ pub enum VeilProgramError {
     #[msg("Invalid schedule ID")]
     InvalidScheduleId,
 
+    #[msg("Invalid schedule interval")]
+    InvalidScheduleInterval,
+
+    #[msg("Invalid reserved amount")]
+    InvalidReservedAmount,
+
+    #[msg("Invalid per-execution amount")]
+    InvalidPerExecutionAmount,
+
     #[msg("Invalid recipients hash")]
     InvalidRecipientsHash,
 

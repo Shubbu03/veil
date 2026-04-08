@@ -5,24 +5,48 @@ export interface ScheduleRecipientData {
     schedulePda: string;
     scheduleId: number[];
     vaultEmployer: string;
-    tokenMint: string; // Token mint address
+    tokenMint: string;
     recipients: Recipient[];
     proofs: MerkleProof[];
     merkleRoot: number[];
     createdAt: number;
 }
 
-export type JobStatus = "pending" | "delegated" | "executing" | "committed" | "failed";
+export type ExecutionRunStatus =
+    | "pending"
+    | "running"
+    | "succeeded"
+    | "failed"
+    | "exhausted";
 
-export interface ExecutionJob {
+export type ExecutionStage = "delegate" | "claim" | "commit";
+
+export type ExecutionStageStatus = "succeeded" | "failed";
+
+export interface ExecutionRun {
+    id: number;
     schedulePda: string;
-    scheduleId: number[];
-    vaultEmployer: PublicKey;
-    status: JobStatus;
-    recipients: Recipient[];
-    proofs: MerkleProof[];
-    nextExecution: number;
-    retries: number;
+    scheduledFor: number;
+    status: ExecutionRunStatus;
+    attemptCount: number;
+    maxAttempts: number;
+    nextAttemptAt: number;
+    startedAt: number | null;
+    finishedAt: number | null;
+    claimedCount: number;
+    alreadyPaidCount: number;
+    failedClaimCount: number;
+    delegateSignature: string | null;
+    commitSignature: string | null;
     lastError?: string;
 }
 
+export interface ExecutionStageRecord {
+    stage: ExecutionStage;
+    status: ExecutionStageStatus;
+    startedAt: number;
+    finishedAt: number;
+    txSignature?: string;
+    error?: string;
+    details?: Record<string, unknown>;
+}

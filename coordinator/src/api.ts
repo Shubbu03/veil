@@ -1,62 +1,97 @@
 import express, { Request, Response } from "express";
-import { PublicKey } from "@solana/web3.js";
 import { recipientStore } from "./store";
 import { ScheduleRecipientData } from "./types";
-import { buildMerkleTree, Recipient } from "@veil-dev/sdk";
+import {
+    RegistrationValidationError,
+    RegisterScheduleRequest,
+    validateScheduleRegistration,
+} from "./registration";
+import { createLogger } from "./logger";
+import {
+    apiRequestDurationSeconds,
+    apiRequestsTotal,
+    metricsRegistry,
+} from "./metrics";
 
 const router = express.Router();
+const logger = createLogger("api");
+
+router.use((req, res, next) => {
+    const startedAt = process.hrtime.bigint();
+
+    res.on("finish", () => {
+        const durationSeconds = Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
+        const route = req.route?.path || req.path || "unknown";
+        const statusCode = String(res.statusCode);
+
+        apiRequestsTotal.inc({
+            method: req.method,
+            route,
+            status_code: statusCode,
+        });
+        apiRequestDurationSeconds.observe(
+            {
+                method: req.method,
+                route,
+            },
+            durationSeconds
+        );
+
+        logger.info(
+            {
+                method: req.method,
+                path: req.originalUrl,
+                route,
+                statusCode: res.statusCode,
+                durationMs: Math.round(durationSeconds * 1000),
+            },
+            "Handled API request"
+        );
+    });
+
+    next();
+});
 
 
 // Register a schedule with recipient data
 router.post("/schedules", async (req: Request, res: Response) => {
     try {
-        const {
-            schedulePda,
-            scheduleId,
-            vaultEmployer,
-            tokenMint,
-            recipients,
-        }: {
-            schedulePda: string;
-            scheduleId: number[];
-            vaultEmployer: string;
-            tokenMint: string;
-            recipients: Array<{ address: string; amount: string }>;
-        } = req.body;
-
-        if (!schedulePda || !scheduleId || !vaultEmployer || !tokenMint || !recipients) {
-            return res.status(400).json({
-                error: "Missing required fields: schedulePda, scheduleId, vaultEmployer, tokenMint, recipients",
-            });
-        }
-
-        const recipientList: Recipient[] = recipients.map((r) => ({
-            address: new PublicKey(r.address),
-            amount: BigInt(r.amount),
-        }));
-
-        const { root, proofs } = buildMerkleTree(recipientList);
+        const validated = await validateScheduleRegistration(req.body as RegisterScheduleRequest);
 
         const data: ScheduleRecipientData = {
-            schedulePda,
-            scheduleId,
-            vaultEmployer,
-            tokenMint,
-            recipients: recipientList,
-            proofs,
-            merkleRoot: Array.from(root),
+            schedulePda: validated.schedulePda,
+            scheduleId: validated.scheduleId,
+            vaultEmployer: validated.vaultEmployer,
+            tokenMint: validated.tokenMint,
+            recipients: validated.recipients,
+            proofs: validated.proofs,
+            merkleRoot: validated.merkleRoot,
             createdAt: Date.now(),
         };
 
-        await recipientStore.set(schedulePda, data);
+        await recipientStore.set(validated.schedulePda, data);
+
+        logger.info(
+            {
+                schedulePda: validated.schedulePda,
+                recipientCount: validated.recipients.length,
+            },
+            "Registered schedule recipient data"
+        );
 
         res.json({
             success: true,
-            schedulePda,
-            merkleRoot: Array.from(root),
+            schedulePda: validated.schedulePda,
+            merkleRoot: validated.merkleRoot,
         });
     } catch (error: any) {
-        console.error("Error registering schedule:", error);
+        if (error instanceof RegistrationValidationError) {
+            logger.warn({ path: req.originalUrl, error: error.message }, "Schedule registration rejected");
+            return res.status(error.statusCode).json({
+                error: error.message,
+            });
+        }
+        logger.error({ err: error }, "Error registering schedule");
         res.status(500).json({
             error: error.message || "Failed to register schedule",
         });
@@ -82,7 +117,7 @@ router.get("/schedules/:schedulePda", async (req: Request, res: Response) => {
             createdAt: data.createdAt,
         });
     } catch (error: any) {
-        console.error("Error fetching schedule:", error);
+        logger.error({ err: error, schedulePda: req.params.schedulePda }, "Error fetching schedule");
         res.status(500).json({
             error: error.message || "Failed to fetch schedule",
         });
@@ -103,7 +138,7 @@ router.get("/health", async (_req: Request, res: Response) => {
             schedulesRegistered: allSchedules.length,
         });
     } catch (error: any) {
-        console.error("Error in health check:", error);
+        logger.error({ err: error }, "Error in health check");
         const isDbError = error.message?.includes("connection") || error.message?.includes("timeout");
         res.status(isDbError ? 503 : 500).json({
             status: "unhealthy",
@@ -114,5 +149,9 @@ router.get("/health", async (_req: Request, res: Response) => {
     }
 });
 
-export default router;
+router.get("/metrics", async (_req: Request, res: Response) => {
+    res.set("Content-Type", metricsRegistry.contentType);
+    res.send(await metricsRegistry.metrics());
+});
 
+export default router;

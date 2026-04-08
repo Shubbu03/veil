@@ -15,6 +15,8 @@ import {
 } from "./helpers";
 
 describe("Schedule Instructions", () => {
+    const MIN_INTERVAL_SECS = 3600;
+    const MAX_INTERVAL_SECS = 31 * 24 * 60 * 60;
     let ctx: TestContext;
     let employerWithVault: Keypair;
     let vaultPda: PublicKey;
@@ -153,7 +155,63 @@ describe("Schedule Instructions", () => {
                 expect.fail("Should have failed");
             } catch (err: any) {
                 const errorCode = getErrorCode(err);
-                expect(errorCode).to.equal("InvalidScheduleId");
+                expect(errorCode).to.equal("InvalidScheduleInterval");
+            }
+        });
+
+        it("Should fail with interval below minimum", async () => {
+            const scheduleId = randomId();
+            const merkleRoot = randomId();
+            const erJobId = randomId();
+
+            try {
+                await ctx.program.methods
+                    .createSchedule(
+                        scheduleId,
+                        new BN(MIN_INTERVAL_SECS - 1),
+                        new BN(1000),
+                        new BN(100),
+                        merkleRoot,
+                        10,
+                        erJobId
+                    )
+                    .accountsPartial({
+                        employer: employerWithVault.publicKey,
+                    })
+                    .signers([employerWithVault])
+                    .rpc();
+                expect.fail("Should have failed");
+            } catch (err: any) {
+                const errorCode = getErrorCode(err);
+                expect(errorCode).to.equal("InvalidScheduleInterval");
+            }
+        });
+
+        it("Should fail with interval above maximum", async () => {
+            const scheduleId = randomId();
+            const merkleRoot = randomId();
+            const erJobId = randomId();
+
+            try {
+                await ctx.program.methods
+                    .createSchedule(
+                        scheduleId,
+                        new BN(MAX_INTERVAL_SECS + 1),
+                        new BN(1000),
+                        new BN(100),
+                        merkleRoot,
+                        10,
+                        erJobId
+                    )
+                    .accountsPartial({
+                        employer: employerWithVault.publicKey,
+                    })
+                    .signers([employerWithVault])
+                    .rpc();
+                expect.fail("Should have failed");
+            } catch (err: any) {
+                const errorCode = getErrorCode(err);
+                expect(errorCode).to.equal("InvalidScheduleInterval");
             }
         });
 
@@ -181,7 +239,63 @@ describe("Schedule Instructions", () => {
                 expect.fail("Should have failed");
             } catch (err: any) {
                 const errorCode = getErrorCode(err);
-                expect(errorCode).to.equal("InsufficientFunds");
+                expect(errorCode).to.equal("InvalidReservedAmount");
+            }
+        });
+
+        it("Should fail with zero per_execution_amount", async () => {
+            const scheduleId = randomId();
+            const merkleRoot = randomId();
+            const erJobId = randomId();
+
+            try {
+                await ctx.program.methods
+                    .createSchedule(
+                        scheduleId,
+                        new BN(MIN_INTERVAL_SECS),
+                        new BN(1000),
+                        new BN(0),
+                        merkleRoot,
+                        10,
+                        erJobId
+                    )
+                    .accountsPartial({
+                        employer: employerWithVault.publicKey,
+                    })
+                    .signers([employerWithVault])
+                    .rpc();
+                expect.fail("Should have failed");
+            } catch (err: any) {
+                const errorCode = getErrorCode(err);
+                expect(errorCode).to.equal("InvalidPerExecutionAmount");
+            }
+        });
+
+        it("Should fail when per_execution_amount exceeds reserved_amount", async () => {
+            const scheduleId = randomId();
+            const merkleRoot = randomId();
+            const erJobId = randomId();
+
+            try {
+                await ctx.program.methods
+                    .createSchedule(
+                        scheduleId,
+                        new BN(MIN_INTERVAL_SECS),
+                        new BN(1000),
+                        new BN(1001),
+                        merkleRoot,
+                        10,
+                        erJobId
+                    )
+                    .accountsPartial({
+                        employer: employerWithVault.publicKey,
+                    })
+                    .signers([employerWithVault])
+                    .rpc();
+                expect.fail("Should have failed");
+            } catch (err: any) {
+                const errorCode = getErrorCode(err);
+                expect(errorCode).to.equal("InvalidPerExecutionAmount");
             }
         });
 
@@ -397,4 +511,3 @@ describe("Schedule Instructions", () => {
         });
     });
 });
-
