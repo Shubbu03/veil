@@ -34,7 +34,7 @@ export function OverviewScreen() {
           <div className="relative flex flex-col gap-6">
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
               <div className="max-w-4xl space-y-3">
-                <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">Manage vaults and schedules without the noise.</h1>
+                <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">Manage vaults and schedules.</h1>
                 <p className="max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">
                   Keep balances split by mint, compose payout schedules, and inspect protocol state from one place on devnet.
                 </p>

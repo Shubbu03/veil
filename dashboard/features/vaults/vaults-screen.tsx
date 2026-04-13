@@ -38,6 +38,8 @@ export function VaultsScreen() {
     : KNOWN_DEVNET_MINTS.map((mint) => ({ ...mint }));
 
   const mintToCreate = config.data?.whitelistEnabled ? selectedMint : manualMint || selectedMint;
+  const isConfigMissing = connected && config.data === null && !config.isLoading && !config.isError;
+  const createVaultDisabled = !mintToCreate || createVaultMutation.isPending || config.isLoading || isConfigMissing;
 
   return (
     <AppShell coordinatorStatus={coordinatorStatus}>
@@ -110,7 +112,7 @@ export function VaultsScreen() {
                     Mint preset
                   </label>
                   <select
-                    className="min-h-11 w-full rounded-2xl border bg-background/70 px-4 py-2 text-sm outline-none"
+                    className="app-select"
                     id="mint-picker"
                     onChange={(event) => {
                       setSelectedMint(event.target.value);
@@ -144,9 +146,11 @@ export function VaultsScreen() {
                 ) : null}
 
                 <div className="rounded-3xl border border-border/70 bg-muted/45 p-4 text-sm leading-7 text-muted-foreground">
-                  {config.data?.whitelistEnabled
-                    ? "Vault creation is limited to approved protocol mints."
-                    : "Any valid devnet SPL mint can be used here."}
+                  {isConfigMissing
+                    ? "Protocol config is missing for the current devnet deployment. Initialize the on-chain config before creating vaults."
+                    : config.data?.whitelistEnabled
+                      ? "Vault creation is limited to approved protocol mints."
+                      : "Any valid devnet SPL mint can be used here."}
                 </div>
 
                 {createVaultMutation.isError ? (
@@ -157,12 +161,12 @@ export function VaultsScreen() {
 
                 <Button
                   className="w-full"
-                  disabled={!mintToCreate || createVaultMutation.isPending}
+                  disabled={createVaultDisabled}
                   onClick={() => {
                     void createVaultMutation.mutateAsync(mintToCreate);
                   }}
                 >
-                  {createVaultMutation.isPending ? "Creating vault…" : "Create vault"}
+                  {config.isLoading ? "Loading config…" : createVaultMutation.isPending ? "Creating vault…" : "Create vault"}
                 </Button>
               </CardContent>
             </Card>

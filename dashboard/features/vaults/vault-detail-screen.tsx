@@ -10,7 +10,7 @@ import { WalletGate } from "@/components/wallet-gate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useCoordinatorHealthQuery, useDepositMutation, useVaultDetailQuery, useWithdrawMutation } from "@/hooks/use-dashboard-data";
+import { useCoordinatorHealthQuery, useDepositMutation, useVaultDetailQuery, useWalletTokenBalanceQuery, useWithdrawMutation } from "@/hooks/use-dashboard-data";
 import { explorerUrl } from "@/lib/solana";
 import { decimalToRawAmount, rawAmountToDecimal } from "@/lib/token";
 import { formatAddress } from "@/lib/format";
@@ -21,6 +21,7 @@ export function VaultDetailScreen({ mint }: { mint: string }) {
   const coordinatorHealth = useCoordinatorHealthQuery();
   const depositMutation = useDepositMutation(mint);
   const withdrawMutation = useWithdrawMutation(mint);
+  const walletTokenBalance = useWalletTokenBalanceQuery(mint);
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
 
@@ -32,6 +33,11 @@ export function VaultDetailScreen({ mint }: { mint: string }) {
       ? "offline"
       : "unknown";
   const vaultData = vault.data;
+  const depositAmountRaw = vaultData ? decimalToRawAmount(depositAmount, vaultData.tokenMint.decimals) : BigInt(0);
+  const withdrawAmountRaw = vaultData ? decimalToRawAmount(withdrawAmount, vaultData.tokenMint.decimals) : BigInt(0);
+  const walletBalanceRaw = walletTokenBalance.data?.balanceRaw ?? BigInt(0);
+  const depositAmountInvalid = depositAmountRaw <= BigInt(0) || depositAmountRaw > walletBalanceRaw;
+  const withdrawAmountInvalid = withdrawAmountRaw <= BigInt(0);
 
   if (!connected) {
     return (
@@ -59,21 +65,21 @@ export function VaultDetailScreen({ mint }: { mint: string }) {
         />
 
         {vaultData ? (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-            <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.12fr)]">
+            <div className="grid gap-4">
               <Card>
                 <CardHeader className="border-b border-border/70">
                   <CardTitle>Balances</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4 pt-5">
+                <CardContent className="grid gap-3 pt-5 sm:grid-cols-2">
                   <div className="rounded-3xl border border-border/70 bg-muted/45 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Available</p>
+                    <p className="text-xs font-medium text-muted-foreground">Available</p>
                     <p className="mt-2 text-2xl font-semibold">
                       {rawAmountToDecimal(vaultData.availableRaw, vaultData.tokenMint.decimals)} {vaultData.tokenMint.symbol}
                     </p>
                   </div>
                   <div className="rounded-3xl border border-border/70 bg-muted/45 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Reserved</p>
+                    <p className="text-xs font-medium text-muted-foreground">Reserved</p>
                     <p className="mt-2 text-2xl font-semibold">
                       {rawAmountToDecimal(vaultData.reservedRaw, vaultData.tokenMint.decimals)} {vaultData.tokenMint.symbol}
                     </p>
@@ -85,21 +91,21 @@ export function VaultDetailScreen({ mint }: { mint: string }) {
                 <CardHeader className="border-b border-border/70">
                   <CardTitle>Addresses</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4 pt-5 text-sm">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Vault PDA</p>
-                    <div className="mt-2 flex items-center gap-3">
+                <CardContent className="space-y-3 pt-5 text-sm">
+                  <div className="rounded-3xl border border-border/70 bg-muted/35 p-4">
+                    <p className="text-xs font-medium text-muted-foreground">Vault PDA</p>
+                    <div className="mt-2 flex items-center justify-between gap-3">
                       <code className="font-mono text-xs text-muted-foreground">{formatAddress(vaultData.publicKey, 10)}</code>
-                      <a className="text-accent" href={explorerUrl(`address/${vaultData.publicKey}`)} rel="noreferrer" target="_blank">
+                      <a className="shrink-0 text-accent" href={explorerUrl(`address/${vaultData.publicKey}`)} rel="noreferrer" target="_blank">
                         <ArrowSquareOut size={16} />
                       </a>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Vault ATA</p>
-                    <div className="mt-2 flex items-center gap-3">
+                  <div className="rounded-3xl border border-border/70 bg-muted/35 p-4">
+                    <p className="text-xs font-medium text-muted-foreground">Vault ATA</p>
+                    <div className="mt-2 flex items-center justify-between gap-3">
                       <code className="font-mono text-xs text-muted-foreground">{formatAddress(vaultData.vaultAta, 10)}</code>
-                      <a className="text-accent" href={explorerUrl(`address/${vaultData.vaultAta}`)} rel="noreferrer" target="_blank">
+                      <a className="shrink-0 text-accent" href={explorerUrl(`address/${vaultData.vaultAta}`)} rel="noreferrer" target="_blank">
                         <ArrowSquareOut size={16} />
                       </a>
                     </div>
@@ -114,11 +120,22 @@ export function VaultDetailScreen({ mint }: { mint: string }) {
                   <CardTitle>Deposit</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-5">
+                  <div className="rounded-3xl border border-border/70 bg-muted/45 p-4 text-sm">
+                    <p className="text-xs font-medium text-muted-foreground">Wallet balance</p>
+                    <p className="mt-2 font-semibold">
+                      {walletTokenBalance.isLoading
+                        ? "Loading…"
+                        : `${rawAmountToDecimal(walletBalanceRaw, vaultData.tokenMint.decimals)} ${vaultData.tokenMint.symbol}`}
+                    </p>
+                  </div>
                   <Input
                     onChange={(event) => setDepositAmount(event.target.value)}
                     placeholder={`Amount in ${vaultData.tokenMint.symbol}`}
                     value={depositAmount}
                   />
+                  {depositAmount && depositAmountInvalid ? (
+                    <p className="text-sm text-destructive">Wallet token balance is too low for this deposit.</p>
+                  ) : null}
                   {depositMutation.isError ? (
                     <p className="text-sm text-destructive">
                       {depositMutation.error instanceof Error ? depositMutation.error.message : "Deposit failed."}
@@ -126,13 +143,14 @@ export function VaultDetailScreen({ mint }: { mint: string }) {
                   ) : null}
                   <Button
                     className="w-full"
-                    disabled={!depositAmount || depositMutation.isPending}
-                    onClick={() => {
+                    disabled={!depositAmount || depositMutation.isPending || walletTokenBalance.isLoading || depositAmountInvalid}
+                    onClick={async () => {
                       const amountRaw = decimalToRawAmount(depositAmount, vaultData.tokenMint.decimals);
-                      void depositMutation.mutateAsync(amountRaw);
+                      await depositMutation.mutateAsync(amountRaw);
+                      setDepositAmount("");
                     }}
                   >
-                    {depositMutation.isPending ? "Depositing…" : "Deposit tokens"}
+                    {depositMutation.isPending ? "Depositing…" : walletTokenBalance.isLoading ? "Checking balance…" : "Deposit tokens"}
                   </Button>
                 </CardContent>
               </Card>
@@ -147,6 +165,9 @@ export function VaultDetailScreen({ mint }: { mint: string }) {
                     placeholder={`Amount in ${vaultData.tokenMint.symbol}`}
                     value={withdrawAmount}
                   />
+                  {withdrawAmount && withdrawAmountInvalid ? (
+                    <p className="text-sm text-destructive">Enter a withdraw amount greater than zero.</p>
+                  ) : null}
                   {withdrawMutation.isError ? (
                     <p className="text-sm text-destructive">
                       {withdrawMutation.error instanceof Error ? withdrawMutation.error.message : "Withdraw failed."}
@@ -154,10 +175,11 @@ export function VaultDetailScreen({ mint }: { mint: string }) {
                   ) : null}
                   <Button
                     className="w-full"
-                    disabled={!withdrawAmount || withdrawMutation.isPending}
-                    onClick={() => {
+                    disabled={!withdrawAmount || withdrawMutation.isPending || withdrawAmountInvalid}
+                    onClick={async () => {
                       const amountRaw = decimalToRawAmount(withdrawAmount, vaultData.tokenMint.decimals);
-                      void withdrawMutation.mutateAsync(amountRaw);
+                      await withdrawMutation.mutateAsync(amountRaw);
+                      setWithdrawAmount("");
                     }}
                     variant="secondary"
                   >

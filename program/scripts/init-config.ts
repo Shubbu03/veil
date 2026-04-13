@@ -1,5 +1,5 @@
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
-import { Wallet, Program, AnchorProvider } from "@coral-xyz/anchor";
+import { Wallet, Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 import * as fs from "fs";
 import * as path from "path";
 import IDL from "../target/idl/veil.json";
@@ -55,7 +55,7 @@ async function main() {
 
     // Initialize config
     const maxRecipients = 1000;
-    const batchTimeoutSecs = 604800; // 7 days (default)
+    const batchTimeoutSecs = new BN(604800); // 7 days (default)
 
     const tx = await program.methods
         .initConfig(

@@ -177,7 +177,7 @@ export function ScheduleBuilderScreen() {
                       Funding vault
                     </label>
                     <select
-                      className="min-h-11 w-full rounded-2xl border bg-background/70 px-4 py-2 text-sm outline-none"
+                      className="app-select"
                       id="vaultMint"
                       {...form.register("vaultMint")}
                     >

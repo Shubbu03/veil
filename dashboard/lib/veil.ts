@@ -3,7 +3,7 @@
 import { BN } from "@coral-xyz/anchor";
 import type { AnchorWallet } from "@solana/wallet-adapter-react";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { getMint } from "@solana/spl-token";
+import { getAccount, getAssociatedTokenAddress, getMint } from "@solana/spl-token";
 import {
   ScheduleStatus,
   VeilClient,
@@ -49,6 +49,11 @@ export interface UiConfig {
   whitelistEnabled: boolean;
   maxRecipients: number;
   allowedMints: MintInfo[];
+}
+
+export interface UiWalletTokenBalance {
+  ata: string;
+  balanceRaw: bigint;
 }
 
 type RawScheduleStatus = ScheduleStatus | { active?: object; paused?: object; cancelled?: object };
@@ -129,6 +134,23 @@ export async function fetchVaultByMint(client: VeilClient, employer: PublicKey, 
 
   const [vaultPda] = getVaultPda(employer, mint);
   return toUiVault(client.connection, vaultPda, vault);
+}
+
+export async function fetchWalletTokenBalance(client: VeilClient, owner: PublicKey, mint: PublicKey): Promise<UiWalletTokenBalance> {
+  const ata = await getAssociatedTokenAddress(mint, owner);
+
+  try {
+    const account = await getAccount(client.connection, ata);
+    return {
+      ata: ata.toBase58(),
+      balanceRaw: BigInt(account.amount.toString()),
+    };
+  } catch {
+    return {
+      ata: ata.toBase58(),
+      balanceRaw: BigInt(0),
+    };
+  }
 }
 
 export async function fetchEmployerSchedules(client: VeilClient, employer: PublicKey) {

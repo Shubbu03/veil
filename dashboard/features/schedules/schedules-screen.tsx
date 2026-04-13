@@ -65,7 +65,7 @@ export function SchedulesScreen() {
               <CardContent className="grid gap-3 pt-5 md:grid-cols-[minmax(0,1fr)_220px]">
                 <Input onChange={(event) => void setSearch(event.target.value)} placeholder="Search by mint or schedule PDA" value={search} />
                 <select
-                  className="min-h-11 w-full rounded-2xl border bg-background/70 px-4 py-2 text-sm outline-none"
+                  className="app-select"
                   onChange={(event) => void setStatusFilter(event.target.value)}
                   value={statusFilter}
                 >

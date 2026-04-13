@@ -11,6 +11,7 @@ import {
   fetchEmployerVaults,
   fetchScheduleByPda,
   fetchVaultByMint,
+  fetchWalletTokenBalance,
   isWalletReady,
   toBn,
 } from "@/lib/veil";
@@ -22,6 +23,7 @@ const queryKeys = {
   coordinatorSchedule: (schedulePda: string) => ["coordinator", "schedule", schedulePda] as const,
   vaults: (employer: string | undefined) => ["veil", "vaults", employer] as const,
   vault: (employer: string | undefined, mint: string) => ["veil", "vault", employer, mint] as const,
+  walletTokenBalance: (owner: string | undefined, mint: string) => ["veil", "wallet-token-balance", owner, mint] as const,
   schedules: (employer: string | undefined) => ["veil", "schedules", employer] as const,
   schedule: (schedulePda: string) => ["veil", "schedule", schedulePda] as const,
 } as const;
@@ -94,6 +96,23 @@ export function useVaultDetailQuery(mintAddress: string) {
   });
 }
 
+export function useWalletTokenBalanceQuery(mintAddress: string) {
+  const client = useVeilClient();
+  const wallet = useAnchorWallet();
+
+  return useQuery({
+    queryKey: queryKeys.walletTokenBalance(wallet?.publicKey?.toBase58(), mintAddress),
+    queryFn: () => {
+      if (!client || !isWalletReady(wallet)) {
+        return null;
+      }
+
+      return fetchWalletTokenBalance(client, wallet.publicKey, parsePublicKey(mintAddress));
+    },
+    enabled: Boolean(client && isWalletReady(wallet) && mintAddress),
+  });
+}
+
 export function useEmployerSchedulesQuery() {
   const client = useVeilClient();
   const wallet = useAnchorWallet();
@@ -138,7 +157,15 @@ export function useCreateVaultMutation() {
         throw new Error("Connect a wallet first.");
       }
 
-      return client.initVault(parsePublicKey(mintAddress));
+      try {
+        return await client.initVault(parsePublicKey(mintAddress));
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("AccountNotInitialized")) {
+          throw new Error("Protocol config is not initialized for the current devnet program deployment. Initialize config before creating vaults.");
+        }
+
+        throw error;
+      }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
@@ -159,12 +186,31 @@ export function useDepositMutation(mintAddress: string) {
         throw new Error("Connect a wallet first.");
       }
 
-      return client.deposit(toBn(amountRaw), parsePublicKey(mintAddress));
+      const walletTokenBalance = await fetchWalletTokenBalance(client, wallet.publicKey, parsePublicKey(mintAddress));
+
+      if (amountRaw <= BigInt(0)) {
+        throw new Error("Enter a deposit amount greater than zero.");
+      }
+
+      if (walletTokenBalance.balanceRaw < amountRaw) {
+        throw new Error("Wallet token balance is too low for this deposit.");
+      }
+
+      try {
+        return await client.deposit(toBn(amountRaw), parsePublicKey(mintAddress));
+      } catch (error) {
+        if (error instanceof Error && error.message.toLowerCase().includes("insufficient funds")) {
+          throw new Error("Wallet token balance is too low for this deposit.");
+        }
+
+        throw error;
+      }
     },
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.vault(wallet?.publicKey?.toBase58(), mintAddress) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.vaults(wallet?.publicKey?.toBase58()) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.walletTokenBalance(wallet?.publicKey?.toBase58(), mintAddress) }),
       ]);
     },
   });
@@ -187,6 +233,7 @@ export function useWithdrawMutation(mintAddress: string) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.vault(wallet?.publicKey?.toBase58(), mintAddress) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.vaults(wallet?.publicKey?.toBase58()) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.walletTokenBalance(wallet?.publicKey?.toBase58(), mintAddress) }),
       ]);
     },
   });
