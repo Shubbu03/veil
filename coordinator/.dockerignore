@@ -1,0 +1,7 @@
+.git
+**/node_modules
+**/dist
+dashboard
+docs
+program/target
+program/.anchor
