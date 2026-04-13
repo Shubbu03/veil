@@ -10,6 +10,31 @@ import { createLogger } from "./logger";
 
 const logger = createLogger("index");
 
+function applyCors(
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+) {
+    const requestOrigin = req.headers.origin;
+    const allowedOrigins = config.corsAllowedOrigins;
+
+    if (allowedOrigins === "*") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+    } else if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+        res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+        res.setHeader("Vary", "Origin");
+    }
+
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+    if (req.method === "OPTIONS") {
+        return res.status(204).end();
+    }
+
+    next();
+}
+
 async function testDatabaseConnection(): Promise<boolean> {
     try {
         // Simple query to test connection
@@ -40,6 +65,7 @@ async function main() {
     logger.info({ erAuthority: erAuthority.publicKey.toString() }, "Loaded ER authority");
 
     const app = express();
+    app.use(applyCors);
     app.use(express.json());
     app.use("/api", apiRouter);
 

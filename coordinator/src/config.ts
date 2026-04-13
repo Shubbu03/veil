@@ -5,13 +5,71 @@ import * as path from "path";
 
 dotenvConfig();
 
+function parseAllowedOrigins(value: string | undefined): "*" | string[] {
+    const trimmed = value?.trim();
+    if (!trimmed || trimmed === "*") {
+        return "*";
+    }
+
+    return trimmed
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+}
+
 function loadKeypair(keypairPath: string): Keypair {
     const resolved = path.resolve(keypairPath);
     if (!fs.existsSync(resolved)) {
         throw new Error(`Keypair file not found: ${resolved}`);
     }
-    const secretKey = JSON.parse(fs.readFileSync(resolved, "utf-8"));
+    return parseKeypairJson(fs.readFileSync(resolved, "utf-8"), `file:${resolved}`);
+}
+
+function parseKeypairJson(raw: string, source: string): Keypair {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+        throw new Error(`ER authority keypair payload is empty (${source})`);
+    }
+
+    let secretKey: unknown;
+    try {
+        secretKey = JSON.parse(trimmed);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to parse ER authority keypair JSON from ${source}: ${message}`);
+    }
+
+    if (
+        !Array.isArray(secretKey) ||
+        secretKey.length === 0 ||
+        secretKey.some((value) => !Number.isInteger(value) || value < 0 || value > 255)
+    ) {
+        throw new Error(`Invalid ER authority keypair payload from ${source}`);
+    }
+
     return Keypair.fromSecretKey(Uint8Array.from(secretKey));
+}
+
+function loadKeypairFromEnv(): Keypair | null {
+    const rawJson = process.env.ER_AUTHORITY_KEYPAIR_JSON;
+    if (rawJson && rawJson.trim()) {
+        return parseKeypairJson(rawJson, "env:ER_AUTHORITY_KEYPAIR_JSON");
+    }
+
+    const rawBase64 = process.env.ER_AUTHORITY_KEYPAIR_B64;
+    if (rawBase64 && rawBase64.trim()) {
+        let decoded: string;
+        try {
+            decoded = Buffer.from(rawBase64.trim(), "base64").toString("utf-8");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to decode ER_AUTHORITY_KEYPAIR_B64: ${message}`);
+        }
+
+        return parseKeypairJson(decoded, "env:ER_AUTHORITY_KEYPAIR_B64");
+    }
+
+    return null;
 }
 
 export const config = {
@@ -20,11 +78,17 @@ export const config = {
     erRpcUrl: process.env.ER_RPC_URL || "https://devnet.magicblock.app",
     erValidator: process.env.ER_VALIDATOR || "MUS3hc9TCw4cGC12vHNoYcCGzJG1txjgQLZWVoeNHNd",
     getErAuthorityKeypair: () => {
+        const keypairFromEnv = loadKeypairFromEnv();
+        if (keypairFromEnv) {
+            return keypairFromEnv;
+        }
+
         const keypairPath = process.env.ER_AUTHORITY_KEYPAIR_PATH || "./er-authority-keypair.json";
         return loadKeypair(keypairPath);
     },
 
     port: parseInt(process.env.PORT || "3001", 10),
+    corsAllowedOrigins: parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS),
     pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS || "60000", 10),
     maxExecutionAttempts: parseInt(process.env.MAX_EXECUTION_ATTEMPTS || "5", 10),
     retryBaseDelayMs: parseInt(process.env.RETRY_BASE_DELAY_MS || "30000", 10),
