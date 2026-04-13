@@ -29,17 +29,27 @@ pub mod veil {
         ctx: Context<InitConfig>,
         governance: Pubkey,
         er_authority: Pubkey,
-        allowed_mint: Pubkey,
+        allowed_mints: Vec<Pubkey>,
+        whitelist_enabled: bool,
         max_recipients: u16,
         batch_timeout_secs: u64,
     ) -> Result<()> {
         ctx.accounts.init_config(
             governance,
             er_authority,
-            allowed_mint,
+            allowed_mints,
+            whitelist_enabled,
             max_recipients,
             batch_timeout_secs,
         )
+    }
+    pub fn update_mint_whitelist(
+        ctx: Context<UpdateMintWhitelist>,
+        whitelist_enabled: bool,
+        allowed_mints: Vec<Pubkey>,
+    ) -> Result<()> {
+        ctx.accounts
+            .update_mint_whitelist(whitelist_enabled, allowed_mints)
     }
     pub fn set_er_authority(ctx: Context<SetErAuthority>, new_er_authority: Pubkey) -> Result<()> {
         ctx.accounts.set_er_auth(new_er_authority)

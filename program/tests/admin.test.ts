@@ -41,7 +41,8 @@ describe("Admin Instructions", () => {
                     .initConfig(
                         ctx.governance.publicKey,
                         ctx.erAuthority.publicKey,
-                        ctx.allowedMint,
+                        [ctx.allowedMint],
+                        true,
                         0,
                         new BN(604800)
                     )
@@ -60,7 +61,8 @@ describe("Admin Instructions", () => {
                     .initConfig(
                         ctx.governance.publicKey,
                         PublicKey.default,
-                        ctx.allowedMint,
+                        [ctx.allowedMint],
+                        true,
                         100,
                         new BN(604800)
                     )
@@ -73,13 +75,14 @@ describe("Admin Instructions", () => {
             }
         });
 
-        it("Should fail with default allowed_mint", async () => {
+        it("Should fail with invalid whitelist entries", async () => {
             try {
                 await ctx.program.methods
                     .initConfig(
                         ctx.governance.publicKey,
                         ctx.erAuthority.publicKey,
-                        PublicKey.default,
+                        [PublicKey.default],
+                        true,
                         100,
                         new BN(604800)
                     )
@@ -88,7 +91,27 @@ describe("Admin Instructions", () => {
                 expect.fail("Should have failed");
             } catch (err: any) {
                 const errorCode = getErrorCode(err);
-                expect(errorCode).to.equal("InvalidErAuthority");
+                expect(errorCode).to.equal("InvalidMintWhitelist");
+            }
+        });
+
+        it("Should fail when whitelist is enabled with no mints", async () => {
+            try {
+                await ctx.program.methods
+                    .initConfig(
+                        ctx.governance.publicKey,
+                        ctx.erAuthority.publicKey,
+                        [],
+                        true,
+                        100,
+                        new BN(604800)
+                    )
+                    .accountsPartial({ admin: ctx.admin.publicKey })
+                    .rpc();
+                expect.fail("Should have failed");
+            } catch (err: any) {
+                const errorCode = getErrorCode(err);
+                expect(errorCode).to.equal("InvalidMintWhitelist");
             }
         });
 
@@ -98,7 +121,8 @@ describe("Admin Instructions", () => {
                     .initConfig(
                         ctx.governance.publicKey,
                         ctx.erAuthority.publicKey,
-                        ctx.allowedMint,
+                        [ctx.allowedMint],
+                        true,
                         100,
                         new BN(3600 - 1) // Less than 1 hour
                     )
@@ -117,7 +141,8 @@ describe("Admin Instructions", () => {
                     .initConfig(
                         ctx.governance.publicKey,
                         ctx.erAuthority.publicKey,
-                        ctx.allowedMint,
+                        [ctx.allowedMint],
+                        true,
                         100,
                         new BN(2592000 + 1) // More than 30 days
                     )
@@ -143,7 +168,8 @@ describe("Admin Instructions", () => {
                 .initConfig(
                     ctx.governance.publicKey,
                     ctx.erAuthority.publicKey,
-                    ctx.allowedMint,
+                    [ctx.allowedMint, ctx.secondaryMint],
+                    true,
                     maxRecipients,
                     new BN(604800)
                 )
@@ -157,7 +183,11 @@ describe("Admin Instructions", () => {
             expect(config.erAuthority.toString()).to.equal(
                 ctx.erAuthority.publicKey.toString()
             );
-            expect(config.allowedMint.toString()).to.equal(ctx.allowedMint.toString());
+            expect(config.whitelistEnabled).to.equal(true);
+            expect(config.allowedMints.map((mint: PublicKey) => mint.toString())).to.deep.equal([
+                ctx.allowedMint.toString(),
+                ctx.secondaryMint.toString(),
+            ]);
             expect(config.maxRecipients).to.equal(maxRecipients);
             expect(config.batchTimeoutSecs.toNumber()).to.equal(604800);
             expect(config.paused).to.be.false;
@@ -169,7 +199,8 @@ describe("Admin Instructions", () => {
                     .initConfig(
                         ctx.governance.publicKey,
                         ctx.erAuthority.publicKey,
-                        ctx.allowedMint,
+                        [ctx.allowedMint],
+                        true,
                         100,
                         new BN(604800)
                     )
@@ -178,6 +209,53 @@ describe("Admin Instructions", () => {
                 expect.fail("Should have failed - config already exists");
             } catch (err: any) {
                 expect(err).to.not.be.null;
+            }
+        });
+    });
+
+    describe("update_mint_whitelist", () => {
+        before(async () => {
+            await ensureConfigInitialized(ctx);
+        });
+
+        it("Should update whitelist successfully", async () => {
+            await ctx.program.methods
+                .updateMintWhitelist(false, [ctx.allowedMint])
+                .accountsPartial({ governance: ctx.governance.publicKey })
+                .signers([ctx.governance])
+                .rpc();
+
+            let config = await ctx.program.account.veilConfig.fetch(ctx.configPda);
+            expect(config.whitelistEnabled).to.equal(false);
+            expect(config.allowedMints.map((mint: PublicKey) => mint.toString())).to.deep.equal([
+                ctx.allowedMint.toString(),
+            ]);
+
+            await ctx.program.methods
+                .updateMintWhitelist(true, [ctx.allowedMint, ctx.secondaryMint])
+                .accountsPartial({ governance: ctx.governance.publicKey })
+                .signers([ctx.governance])
+                .rpc();
+
+            config = await ctx.program.account.veilConfig.fetch(ctx.configPda);
+            expect(config.whitelistEnabled).to.equal(true);
+            expect(config.allowedMints.map((mint: PublicKey) => mint.toString())).to.deep.equal([
+                ctx.allowedMint.toString(),
+                ctx.secondaryMint.toString(),
+            ]);
+        });
+
+        it("Should fail if unauthorized", async () => {
+            try {
+                await ctx.program.methods
+                    .updateMintWhitelist(false, [ctx.allowedMint])
+                    .accountsPartial({ governance: unauthorizedUser.publicKey })
+                    .signers([unauthorizedUser])
+                    .rpc();
+                expect.fail("Should have failed");
+            } catch (err: any) {
+                const errorCode = getErrorCode(err);
+                expect(errorCode).to.equal("Unauthorized");
             }
         });
     });
@@ -346,4 +424,3 @@ describe("Admin Instructions", () => {
         });
     });
 });
-

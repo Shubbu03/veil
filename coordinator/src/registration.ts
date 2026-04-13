@@ -78,11 +78,11 @@ export async function validateScheduleRegistration(
         amount: parseAmount(recipient.amount, `recipients[${index}].amount`),
     }));
 
-    const [derivedVaultPda] = getVaultPda(employerPubkey);
+    const [derivedVaultPda] = getVaultPda(employerPubkey, tokenMintPubkey);
     const [derivedSchedulePda] = getSchedulePda(derivedVaultPda, scheduleId);
     if (!schedulePubkey.equals(derivedSchedulePda)) {
         logger.warn({ schedulePda, vaultEmployer }, "Schedule PDA does not match derived PDA");
-        throw new RegistrationValidationError("schedulePda does not match vaultEmployer + scheduleId");
+        throw new RegistrationValidationError("schedulePda does not match vaultEmployer + tokenMint + scheduleId");
     }
 
     const accounts = program.account as any;

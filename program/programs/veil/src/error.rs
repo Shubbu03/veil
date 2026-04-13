@@ -82,4 +82,13 @@ pub enum VeilProgramError {
 
     #[msg("Invalid batch timeout - must be between 1 hour and 30 days")]
     InvalidBatchTimeout,
+
+    #[msg("Invalid mint whitelist configuration")]
+    InvalidMintWhitelist,
+
+    #[msg("Too many allowed mints configured")]
+    TooManyAllowedMints,
+
+    #[msg("Duplicate mint found in whitelist")]
+    DuplicateAllowedMint,
 }

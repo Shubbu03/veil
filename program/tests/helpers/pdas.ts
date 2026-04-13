@@ -9,9 +9,12 @@ export function getConfigPda(): [PublicKey, number] {
     );
 }
 
-export function getVaultPda(employer: PublicKey): [PublicKey, number] {
+export function getVaultPda(
+    employer: PublicKey,
+    tokenMint: PublicKey
+): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), employer.toBuffer()],
+        [Buffer.from("vault"), employer.toBuffer(), tokenMint.toBuffer()],
         PROGRAM_ID
     );
 }
@@ -29,4 +32,3 @@ export function getSchedulePda(vault: PublicKey, scheduleId: number[]): [PublicK
         PROGRAM_ID
     );
 }
-

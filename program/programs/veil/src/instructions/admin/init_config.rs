@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::error::VeilProgramError;
 use crate::events::ConfigInitialized;
-use crate::{VeilConfig, ANCHOR_DISCRIMINATOR};
+use crate::{validate_mint_whitelist, VeilConfig, ANCHOR_DISCRIMINATOR};
 
 #[derive(Accounts)]
 pub struct InitConfig<'info> {
@@ -26,7 +26,8 @@ impl<'info> InitConfig<'info> {
         &mut self,
         governance: Pubkey,
         er_authority: Pubkey,
-        allowed_mint: Pubkey,
+        allowed_mints: Vec<Pubkey>,
+        whitelist_enabled: bool,
         max_recipients: u16,
         batch_timeout_secs: u64,
     ) -> Result<()> {
@@ -35,10 +36,7 @@ impl<'info> InitConfig<'info> {
             er_authority != Pubkey::default(),
             VeilProgramError::InvalidErAuthority
         );
-        require!(
-            allowed_mint != Pubkey::default(),
-            VeilProgramError::InvalidErAuthority
-        );
+        validate_mint_whitelist(&allowed_mints, whitelist_enabled)?;
 
         // Validate batch timeout: 1 hour (3600) to 30 days (2592000)
         const MIN_TIMEOUT: u64 = 3600; // 1 hour
@@ -51,7 +49,8 @@ impl<'info> InitConfig<'info> {
         self.config.set_inner(VeilConfig {
             governance,
             er_authority,
-            allowed_mint,
+            whitelist_enabled,
+            allowed_mints: allowed_mints.clone(),
             max_recipients,
             paused: false,
             batch_timeout_secs,
@@ -60,7 +59,8 @@ impl<'info> InitConfig<'info> {
         emit!(ConfigInitialized {
             governance,
             er_authority,
-            allowed_mint,
+            whitelist_enabled,
+            allowed_mints,
             max_recipients,
             batch_timeout_secs,
         });

@@ -31,7 +31,7 @@ describe("Vault Instructions", () => {
 
     describe("init_vault", () => {
         it("Should initialize vault for employer", async () => {
-            const [vaultPda] = getVaultPda(ctx.employer.publicKey);
+            const [vaultPda] = getVaultPda(ctx.employer.publicKey, ctx.allowedMint);
 
             await ctx.program.methods
                 .initVault()
@@ -68,6 +68,42 @@ describe("Vault Instructions", () => {
             }
         });
 
+        it("Should initialize a second vault for the same employer with another mint", async () => {
+            const employer = Keypair.generate();
+            await ctx.provider.connection.requestAirdrop(employer.publicKey, 2 * 1e9);
+            await ctx.provider.connection.confirmTransaction(
+                await ctx.provider.connection.requestAirdrop(employer.publicKey, 0),
+                "confirmed"
+            );
+
+            const [primaryVaultPda] = getVaultPda(employer.publicKey, ctx.allowedMint);
+            const [secondaryVaultPda] = getVaultPda(employer.publicKey, ctx.secondaryMint);
+
+            await ctx.program.methods
+                .initVault()
+                .accountsPartial({
+                    employer: employer.publicKey,
+                    tokenMint: ctx.allowedMint,
+                })
+                .signers([employer])
+                .rpc();
+
+            await ctx.program.methods
+                .initVault()
+                .accountsPartial({
+                    employer: employer.publicKey,
+                    tokenMint: ctx.secondaryMint,
+                })
+                .signers([employer])
+                .rpc();
+
+            const primaryVault = await ctx.program.account.vaultAccount.fetch(primaryVaultPda);
+            const secondaryVault = await ctx.program.account.vaultAccount.fetch(secondaryVaultPda);
+
+            expect(primaryVault.tokenMint.toString()).to.equal(ctx.allowedMint.toString());
+            expect(secondaryVault.tokenMint.toString()).to.equal(ctx.secondaryMint.toString());
+        });
+
         it("Should fail with invalid mint", async () => {
             const otherEmployer = Keypair.generate();
             await ctx.provider.connection.requestAirdrop(
@@ -101,6 +137,50 @@ describe("Vault Instructions", () => {
             } catch (err: any) {
                 const errorCode = getErrorCode(err);
                 expect(errorCode).to.equal("InvalidMint");
+            }
+        });
+
+        it("Should allow non-whitelisted mints when the whitelist is disabled", async () => {
+            const employer = Keypair.generate();
+            await ctx.provider.connection.requestAirdrop(employer.publicKey, 2 * 1e9);
+            await ctx.provider.connection.confirmTransaction(
+                await ctx.provider.connection.requestAirdrop(employer.publicKey, 0),
+                "confirmed"
+            );
+
+            const unrestrictedMint = await createMint(
+                ctx.provider.connection,
+                ctx.admin.payer,
+                ctx.admin.publicKey,
+                null,
+                6
+            );
+
+            await ctx.program.methods
+                .updateMintWhitelist(false, [])
+                .accountsPartial({ governance: ctx.governance.publicKey })
+                .signers([ctx.governance])
+                .rpc();
+
+            try {
+                await ctx.program.methods
+                    .initVault()
+                    .accountsPartial({
+                        employer: employer.publicKey,
+                        tokenMint: unrestrictedMint,
+                    })
+                    .signers([employer])
+                    .rpc();
+
+                const [vaultPda] = getVaultPda(employer.publicKey, unrestrictedMint);
+                const vault = await ctx.program.account.vaultAccount.fetch(vaultPda);
+                expect(vault.tokenMint.toString()).to.equal(unrestrictedMint.toString());
+            } finally {
+                await ctx.program.methods
+                    .updateMintWhitelist(true, [ctx.allowedMint, ctx.secondaryMint])
+                    .accountsPartial({ governance: ctx.governance.publicKey })
+                    .signers([ctx.governance])
+                    .rpc();
             }
         });
 
@@ -164,7 +244,7 @@ describe("Vault Instructions", () => {
                 "confirmed"
             );
 
-            [vaultPda] = getVaultPda(employerWithVault.publicKey);
+            [vaultPda] = getVaultPda(employerWithVault.publicKey, ctx.allowedMint);
 
             await ctx.program.methods
                 .initVault()
@@ -248,7 +328,7 @@ describe("Vault Instructions", () => {
                 "confirmed"
             );
 
-            [vaultPda] = getVaultPda(employerWithVault.publicKey);
+            [vaultPda] = getVaultPda(employerWithVault.publicKey, ctx.allowedMint);
 
             await ctx.program.methods
                 .initVault()
@@ -333,7 +413,7 @@ describe("Vault Instructions", () => {
         });
 
         it("Should fail if unauthorized", async () => {
-            const [unauthorizedVaultPda] = getVaultPda(unauthorizedUser.publicKey);
+            const [unauthorizedVaultPda] = getVaultPda(unauthorizedUser.publicKey, ctx.allowedMint);
             const [unauthorizedVaultAta] = getVaultAtaPda(unauthorizedVaultPda);
             const { getAssociatedTokenAddress } = await import("@solana/spl-token");
             const unauthorizedEmployerAta = await getAssociatedTokenAddress(
@@ -360,4 +440,3 @@ describe("Vault Instructions", () => {
         });
     });
 });
-

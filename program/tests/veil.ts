@@ -38,6 +38,7 @@ describe("veil", () => {
   const newErAuthority = Keypair.generate();
   const unauthorizedUser = Keypair.generate();
   const allowedMint = Keypair.generate().publicKey;
+  const secondaryMint = Keypair.generate().publicKey;
   let configExists = false;
   let configGovernance: PublicKey | null = null;
 
@@ -89,7 +90,8 @@ describe("veil", () => {
             .initConfig(
               governance.publicKey,
               erAuthority.publicKey,
-              allowedMint,
+              [allowedMint],
+              true,
               0,
               new BN(604800)
             )
@@ -110,7 +112,8 @@ describe("veil", () => {
             .initConfig(
               governance.publicKey,
               PublicKey.default,
-              allowedMint,
+              [allowedMint],
+              true,
               100,
               new BN(604800)
             )
@@ -125,13 +128,14 @@ describe("veil", () => {
         }
       });
 
-      it("Should fail with default allowed_mint", async () => {
+      it("Should fail with invalid whitelist entries", async () => {
         try {
           await program.methods
             .initConfig(
               governance.publicKey,
               erAuthority.publicKey,
-              PublicKey.default,
+              [PublicKey.default],
+              true,
               100,
               new BN(604800)
             )
@@ -159,7 +163,8 @@ describe("veil", () => {
           .initConfig(
             governance.publicKey,
             erAuthority.publicKey,
-            allowedMint,
+            [allowedMint, secondaryMint],
+            true,
             maxRecipients,
             new BN(604800)
           )
@@ -175,7 +180,11 @@ describe("veil", () => {
         expect(config.erAuthority.toString()).to.equal(
           erAuthority.publicKey.toString()
         );
-        expect(config.allowedMint.toString()).to.equal(allowedMint.toString());
+        expect(config.whitelistEnabled).to.equal(true);
+        expect(config.allowedMints.map((mint: PublicKey) => mint.toString())).to.deep.equal([
+          allowedMint.toString(),
+          secondaryMint.toString(),
+        ]);
         expect(config.maxRecipients).to.equal(maxRecipients);
         expect(config.batchTimeoutSecs.toNumber()).to.equal(604800);
         expect(config.paused).to.be.false;
@@ -187,7 +196,8 @@ describe("veil", () => {
             .initConfig(
               governance.publicKey,
               erAuthority.publicKey,
-              allowedMint,
+              [allowedMint],
+              true,
               100,
               new BN(604800)
             )

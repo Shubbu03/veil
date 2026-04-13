@@ -18,7 +18,7 @@ pub struct Deposit<'info> {
 
     #[account(
         mut,
-        seeds = [b"vault", employer.key().as_ref()],
+        seeds = [b"vault", employer.key().as_ref(), token_mint.key().as_ref()],
         bump = vault.bump,
         has_one = employer @ VeilProgramError::Unauthorized,
         has_one = token_mint @ VeilProgramError::InvalidMint,
@@ -43,7 +43,7 @@ impl<'info> Deposit<'info> {
     pub fn deposit_to_vault(&mut self, amount: u64) -> Result<()> {
         require!(!self.config.paused, VeilProgramError::Paused);
         require!(
-            self.token_mint.key() == self.config.allowed_mint,
+            self.config.is_mint_allowed(&self.token_mint.key()),
             VeilProgramError::InvalidMint
         );
         require!(
@@ -73,7 +73,8 @@ impl<'info> Deposit<'info> {
             .checked_add(amount)
             .ok_or(VeilProgramError::InsufficientFunds)?;
 
-        // Verify invariant: available + reserved == balance
+        // Refresh the vault ATA after the CPI so the invariant check uses the updated balance.
+        self.vault_ata.reload()?;
         let balance = self.vault_ata.amount;
         require!(
             self.vault

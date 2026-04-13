@@ -61,7 +61,8 @@ async function main() {
         .initConfig(
             adminKeypair.publicKey,  // governance
             erAuthorityKeypair.publicKey,  // er_authority
-            USDC_DEVNET,  // allowed_mint
+            [USDC_DEVNET],  // allowed_mints
+            true,  // whitelist_enabled
             maxRecipients,  // max_recipients
             batchTimeoutSecs  // batch_timeout_secs
         )
@@ -83,4 +84,3 @@ main().catch((error) => {
     console.error("Error:", error);
     process.exit(1);
 });
-

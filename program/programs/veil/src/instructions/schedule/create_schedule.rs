@@ -22,7 +22,7 @@ pub struct CreateSchedule<'info> {
 
     #[account(
         mut,
-        seeds = [b"vault", employer.key().as_ref()],
+        seeds = [b"vault", employer.key().as_ref(), vault.token_mint.as_ref()],
         bump = vault.bump,
         has_one = employer @ VeilProgramError::Unauthorized,
     )]
