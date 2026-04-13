@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCancelScheduleMutation, useCoordinatorHealthQuery, useCoordinatorScheduleQuery, usePauseScheduleMutation, useScheduleDetailQuery, useRegisterScheduleMutation } from "@/hooks/use-dashboard-data";
 import type { CoordinatorRegistrationPayload } from "@/lib/coordinator";
 import { clearPendingRegistration, getPendingRegistration } from "@/lib/pending-registrations";
+import { notify, userFacingError } from "@/lib/notify";
 import { explorerUrl } from "@/lib/solana";
 import { formatAddress, formatDateTime, formatRelativeTime } from "@/lib/format";
 import { rawAmountToDecimal } from "@/lib/token";
@@ -26,7 +27,6 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
   const pauseMutation = usePauseScheduleMutation(schedulePda);
   const cancelMutation = useCancelScheduleMutation(schedulePda);
   const registerMutation = useRegisterScheduleMutation(schedulePda);
-  const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [pendingRegistration, setPendingRegistration] = useState<CoordinatorRegistrationPayload | null>(null);
   const retryAvailable = Boolean(pendingRegistration);
   const coordinatorStatus = coordinatorHealth.data
@@ -145,27 +145,22 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                     </p>
                   ) : null}
 
-                  {registerMutation.isError ? (
-                    <p className="text-sm text-destructive">
-                      {registerMutation.error instanceof Error ? registerMutation.error.message : "Registration failed."}
-                    </p>
-                  ) : null}
-
-                  {localMessage ? <p className="text-sm text-success">{localMessage}</p> : null}
-
                   <Button
                     className="w-full"
                     disabled={!retryAvailable || registerMutation.isPending}
-                    onClick={() => {
+                    onClick={async () => {
                       if (!pendingRegistration) {
                         return;
                       }
 
-                      void registerMutation.mutateAsync(pendingRegistration).then(() => {
+                      try {
+                        await registerMutation.mutateAsync(pendingRegistration);
                         clearPendingRegistration(schedulePda);
                         setPendingRegistration(null);
-                        setLocalMessage("Coordinator registration completed.");
-                      });
+                        notify("Coordinator registration completed.", "success");
+                      } catch (error) {
+                        notify(userFacingError(error, "Could not register this schedule. Try again."), "error");
+                      }
                     }}
                     variant="secondary"
                   >
@@ -184,7 +179,15 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                       <Button
                         className="w-full"
                         disabled={pauseMutation.isPending}
-                        onClick={() => void pauseMutation.mutateAsync(scheduleData.status !== "Paused")}
+                        onClick={async () => {
+                          try {
+                            const shouldPause = scheduleData.status !== "Paused";
+                            await pauseMutation.mutateAsync(shouldPause);
+                            notify(shouldPause ? "Schedule paused." : "Schedule resumed.", "success");
+                          } catch (error) {
+                            notify(userFacingError(error, "Could not update the schedule. Try again."), "error");
+                          }
+                        }}
                         variant="secondary"
                       >
                         {scheduleData.status === "Paused" ? "Resume schedule" : "Pause schedule"}
@@ -192,7 +195,14 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                       <Button
                         className="w-full"
                         disabled={cancelMutation.isPending}
-                        onClick={() => void cancelMutation.mutateAsync()}
+                        onClick={async () => {
+                          try {
+                            await cancelMutation.mutateAsync();
+                            notify("Schedule cancelled.", "success");
+                          } catch (error) {
+                            notify(userFacingError(error, "Could not cancel the schedule. Try again."), "error");
+                          }
+                        }}
                         variant="destructive"
                       >
                         Cancel schedule

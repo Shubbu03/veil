@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useConfigQuery, useCoordinatorHealthQuery, useCreateVaultMutation, useEmployerVaultsQuery } from "@/hooks/use-dashboard-data";
 import { formatAddress, formatNumber } from "@/lib/format";
+import { notify, userFacingError } from "@/lib/notify";
 import { rawAmountToDecimal } from "@/lib/token";
 import { KNOWN_DEVNET_MINTS } from "@/lib/constants";
 
@@ -156,17 +157,16 @@ export function VaultsScreen() {
                       : "Any valid devnet SPL mint can be used here."}
                 </div>
 
-                {createVaultMutation.isError ? (
-                  <p className="text-sm text-destructive">
-                    {createVaultMutation.error instanceof Error ? createVaultMutation.error.message : "Failed to create vault."}
-                  </p>
-                ) : null}
-
                 <Button
                   className="w-full"
                   disabled={createVaultDisabled}
-                  onClick={() => {
-                    void createVaultMutation.mutateAsync(mintToCreate);
+                  onClick={async () => {
+                    try {
+                      await createVaultMutation.mutateAsync(mintToCreate);
+                      notify("Vault created.", "success");
+                    } catch (error) {
+                      notify(userFacingError(error, "Could not create the vault. Try again."), "error");
+                    }
                   }}
                 >
                   {config.isLoading ? "Loading config…" : createVaultMutation.isPending ? "Creating vault…" : "Create vault"}

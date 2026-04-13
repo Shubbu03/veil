@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCoordinatorHealthQuery, useDepositMutation, useVaultDetailQuery, useWalletTokenBalanceQuery, useWithdrawMutation } from "@/hooks/use-dashboard-data";
 import { explorerUrl } from "@/lib/solana";
+import { notify, userFacingError } from "@/lib/notify";
 import { decimalToRawAmount, rawAmountToDecimal } from "@/lib/token";
 import { formatAddress } from "@/lib/format";
 
@@ -136,18 +137,18 @@ export function VaultDetailScreen({ mint }: { mint: string }) {
                   {depositAmount && depositAmountInvalid ? (
                     <p className="text-sm text-destructive">Wallet token balance is too low for this deposit.</p>
                   ) : null}
-                  {depositMutation.isError ? (
-                    <p className="text-sm text-destructive">
-                      {depositMutation.error instanceof Error ? depositMutation.error.message : "Deposit failed."}
-                    </p>
-                  ) : null}
                   <Button
                     className="w-full"
                     disabled={!depositAmount || depositMutation.isPending || walletTokenBalance.isLoading || depositAmountInvalid}
                     onClick={async () => {
-                      const amountRaw = decimalToRawAmount(depositAmount, vaultData.tokenMint.decimals);
-                      await depositMutation.mutateAsync(amountRaw);
-                      setDepositAmount("");
+                      try {
+                        const amountRaw = decimalToRawAmount(depositAmount, vaultData.tokenMint.decimals);
+                        await depositMutation.mutateAsync(amountRaw);
+                        setDepositAmount("");
+                        notify("Tokens moved into the vault.", "success");
+                      } catch (error) {
+                        notify(userFacingError(error, "Could not deposit tokens. Try again."), "error");
+                      }
                     }}
                   >
                     {depositMutation.isPending ? "Depositing…" : walletTokenBalance.isLoading ? "Checking balance…" : "Deposit tokens"}
@@ -168,18 +169,18 @@ export function VaultDetailScreen({ mint }: { mint: string }) {
                   {withdrawAmount && withdrawAmountInvalid ? (
                     <p className="text-sm text-destructive">Enter a withdraw amount greater than zero.</p>
                   ) : null}
-                  {withdrawMutation.isError ? (
-                    <p className="text-sm text-destructive">
-                      {withdrawMutation.error instanceof Error ? withdrawMutation.error.message : "Withdraw failed."}
-                    </p>
-                  ) : null}
                   <Button
                     className="w-full"
                     disabled={!withdrawAmount || withdrawMutation.isPending || withdrawAmountInvalid}
                     onClick={async () => {
-                      const amountRaw = decimalToRawAmount(withdrawAmount, vaultData.tokenMint.decimals);
-                      await withdrawMutation.mutateAsync(amountRaw);
-                      setWithdrawAmount("");
+                      try {
+                        const amountRaw = decimalToRawAmount(withdrawAmount, vaultData.tokenMint.decimals);
+                        await withdrawMutation.mutateAsync(amountRaw);
+                        setWithdrawAmount("");
+                        notify("Tokens returned to your wallet.", "success");
+                      } catch (error) {
+                        notify(userFacingError(error, "Could not withdraw tokens. Try again."), "error");
+                      }
                     }}
                     variant="secondary"
                   >

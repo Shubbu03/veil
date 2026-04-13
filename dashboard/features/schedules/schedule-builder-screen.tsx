@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCoordinatorHealthQuery, useEmployerVaultsQuery, useRegisterScheduleMutation } from "@/hooks/use-dashboard-data";
+import { notify, userFacingError } from "@/lib/notify";
 import { storePendingRegistration } from "@/lib/pending-registrations";
 import { decimalToRawAmount, rawAmountToDecimal } from "@/lib/token";
 import { deriveSchedulePdaFromMint } from "@/lib/veil";
@@ -61,7 +62,6 @@ export function ScheduleBuilderScreen() {
   const client = useVeilClient();
   const vaults = useEmployerVaultsQuery();
   const coordinatorHealth = useCoordinatorHealthQuery();
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const registerMutation = useRegisterScheduleMutation("pending");
 
   const coordinatorStatus = coordinatorHealth.data
@@ -107,12 +107,11 @@ export function ScheduleBuilderScreen() {
 
   async function onSubmit(values: FormValues) {
     if (!client || !wallet || !selectedVault) {
-      setSubmitError("Connect a wallet and select a vault before creating a schedule.");
+      notify("Connect a wallet and choose a vault first.", "error");
       return;
     }
 
     try {
-      setSubmitError(null);
       const decimals = selectedVault.tokenMint.decimals;
       const reservedAmountRaw = decimalToRawAmount(values.reservedAmount, decimals);
       const intervalSecs = toIntervalSecs(values.intervalValue, values.intervalUnit);
@@ -149,15 +148,22 @@ export function ScheduleBuilderScreen() {
 
       storePendingRegistration(payload);
 
+      let registrationNeedsRetry = false;
       if (values.autoRegister) {
-        await registerMutation.mutateAsync(payload);
+        try {
+          await registerMutation.mutateAsync(payload);
+        } catch {
+          registrationNeedsRetry = true;
+        }
       }
+
+      notify(registrationNeedsRetry ? "Schedule created. Coordinator registration needs retry." : "Schedule created.", registrationNeedsRetry ? "warn" : "success");
 
       startTransition(() => {
         router.push(signature ? `/schedules/${schedulePda.toBase58()}?signature=${signature}` : `/schedules/${schedulePda.toBase58()}`);
       });
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Failed to create schedule.");
+      notify(userFacingError(error, "Could not create the schedule. Try again."), "error");
     }
   }
 
@@ -318,8 +324,6 @@ export function ScheduleBuilderScreen() {
                   <input className="size-4" type="checkbox" {...form.register("autoRegister")} />
                   Auto-register with coordinator after creation
                 </label>
-
-                {submitError ? <p className="text-sm text-destructive">{submitError}</p> : null}
 
                 <Button className="w-full" disabled={form.formState.isSubmitting || reservedAmountTooHigh || reservedAmountTooLow} type="submit">
                   {form.formState.isSubmitting ? "Creating schedule…" : "Create schedule"}
