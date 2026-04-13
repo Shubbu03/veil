@@ -1,8 +1,8 @@
 "use client";
 
 import { ShieldCheck, Wallet } from "phosphor-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { WalletConnectButton } from "@/components/wallet-connect-button";
 
 export function WalletGate() {
   return (
@@ -25,7 +25,7 @@ export function WalletGate() {
           <ShieldCheck size={18} weight="duotone" className="text-success" />
           Protocol configuration stays visible before you connect.
         </div>
-        <WalletMultiButton />
+        <WalletConnectButton />
       </CardContent>
     </Card>
   );

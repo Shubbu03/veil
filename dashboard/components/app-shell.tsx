@@ -4,10 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ChartBar, ClockCounterClockwise, Coins, Queue } from "phosphor-react";
+import { ChartBar, ClockCounterClockwise, Coins, Queue, SidebarSimple } from "phosphor-react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { formatAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -107,6 +108,20 @@ export function AppShell({
               );
             })}
           </nav>
+
+          <div className="border-t border-border/70 p-3">
+            <Button
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className={cn(sidebarCollapsed ? "size-10 w-full rounded-2xl px-0" : "w-full justify-start rounded-2xl px-4")}
+              onClick={() => setSidebarCollapsed((current) => !current)}
+              size="sm"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              variant="ghost"
+            >
+              <SidebarSimple size={18} weight="bold" />
+              {!sidebarCollapsed ? <span>Toggle sidebar</span> : null}
+            </Button>
+          </div>
         </aside>
 
         <main className="flex min-h-screen flex-col gap-6">
@@ -127,7 +142,7 @@ export function AppShell({
 
             <div className="flex items-center gap-3 self-start md:self-auto">
               <ThemeToggle />
-              <WalletMultiButton />
+              <WalletConnectButton />
             </div>
           </header>
 

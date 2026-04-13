@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { ThemeProvider } from "@/providers/theme-provider";
-import { SolanaProvider } from "@/providers/solana-provider";
+import { SolanaWalletProvider } from "@/providers/solana-provider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,9 +19,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
       <NuqsAdapter>
-        <SolanaProvider>
+        <SolanaWalletProvider>
           <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        </SolanaProvider>
+        </SolanaWalletProvider>
       </NuqsAdapter>
     </ThemeProvider>
   );
