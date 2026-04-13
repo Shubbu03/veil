@@ -39,7 +39,8 @@ export function VaultsScreen() {
 
   const mintToCreate = config.data?.whitelistEnabled ? selectedMint : manualMint || selectedMint;
   const isConfigMissing = connected && config.data === null && !config.isLoading && !config.isError;
-  const createVaultDisabled = !mintToCreate || createVaultMutation.isPending || config.isLoading || isConfigMissing;
+  const vaultAlreadyExists = Boolean(mintToCreate && vaults.data?.some((vault) => vault.tokenMint.address === mintToCreate));
+  const createVaultDisabled = !mintToCreate || createVaultMutation.isPending || config.isLoading || isConfigMissing || vaultAlreadyExists;
 
   return (
     <AppShell coordinatorStatus={coordinatorStatus}>
@@ -148,6 +149,8 @@ export function VaultsScreen() {
                 <div className="rounded-3xl border border-border/70 bg-muted/45 p-4 text-sm leading-7 text-muted-foreground">
                   {isConfigMissing
                     ? "Protocol config is missing for the current devnet deployment. Initialize the on-chain config before creating vaults."
+                    : vaultAlreadyExists
+                      ? "This wallet already has a vault for the selected mint."
                     : config.data?.whitelistEnabled
                       ? "Vault creation is limited to approved protocol mints."
                       : "Any valid devnet SPL mint can be used here."}

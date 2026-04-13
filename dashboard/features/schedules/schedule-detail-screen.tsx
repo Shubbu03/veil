@@ -28,6 +28,7 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
   const registerMutation = useRegisterScheduleMutation(schedulePda);
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [pendingRegistration, setPendingRegistration] = useState<CoordinatorRegistrationPayload | null>(null);
+  const retryAvailable = Boolean(pendingRegistration);
   const coordinatorStatus = coordinatorHealth.data
     ? coordinatorHealth.data.status === "healthy"
       ? "online"
@@ -117,8 +118,8 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                 <CardHeader className="border-b border-border/70">
                   <div className="flex items-center justify-between gap-3">
                     <CardTitle>Coordinator registration</CardTitle>
-                    <Badge tone={registration.data ? "success" : pendingRegistration ? "warning" : "muted"}>
-                      {registration.data ? "Registered" : pendingRegistration ? "Pending retry" : "Not registered"}
+                    <Badge tone={registration.data ? "success" : retryAvailable ? "warning" : "muted"}>
+                      {registration.data ? "Registered" : retryAvailable ? "Retry available" : "Payload unavailable"}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -128,11 +129,21 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                       <DetailItem label="Registered at" value={formatDateTime(registration.data.createdAt)} />
                       <DetailItem label="Recipients mirrored" value={registration.data.recipientCount.toString()} />
                     </div>
+                  ) : retryAvailable ? (
+                    <p className="text-sm leading-7 text-muted-foreground">
+                      Coordinator registration is still missing, but this browser has the original recipient payload so you can retry it now.
+                    </p>
                   ) : (
                     <p className="text-sm leading-7 text-muted-foreground">
-                      This schedule is not confirmed in the coordinator store. Registration is only possible if the browser still has the original recipient payload.
+                      This schedule is not confirmed in the coordinator store, and this browser no longer has the original recipient payload needed to retry registration.
                     </p>
                   )}
+
+                  {!registration.data ? (
+                    <p className="text-xs leading-6 text-muted-foreground">
+                      The execution interval does not affect registration timing. Coordinator registration happens immediately after creation, not after the first run.
+                    </p>
+                  ) : null}
 
                   {registerMutation.isError ? (
                     <p className="text-sm text-destructive">
@@ -144,7 +155,7 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
 
                   <Button
                     className="w-full"
-                    disabled={!pendingRegistration || registerMutation.isPending}
+                    disabled={!retryAvailable || registerMutation.isPending}
                     onClick={() => {
                       if (!pendingRegistration) {
                         return;
@@ -158,7 +169,7 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                     }}
                     variant="secondary"
                   >
-                    {registerMutation.isPending ? "Registering…" : "Retry coordinator registration"}
+                    {registerMutation.isPending ? "Registering…" : retryAvailable ? "Retry coordinator registration" : "Retry unavailable"}
                   </Button>
                 </CardContent>
               </Card>
@@ -207,7 +218,7 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className="mt-2 text-sm font-semibold">{value}</p>
     </div>
   );
@@ -216,7 +227,7 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 function AddressRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <div className="mt-2 flex items-center gap-3">
         <code className="font-mono text-xs text-muted-foreground">{formatAddress(value, 10)}</code>
         <a className="text-accent" href={explorerUrl(`address/${value}`)} rel="noreferrer" target="_blank">

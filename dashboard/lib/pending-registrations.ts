@@ -9,8 +9,20 @@ function readStore() {
     return {} as Record<string, CoordinatorRegistrationPayload>;
   }
 
-  const value = window.sessionStorage.getItem(STORAGE_KEY);
-  return value ? (JSON.parse(value) as Record<string, CoordinatorRegistrationPayload>) : {};
+  const localValue = window.localStorage.getItem(STORAGE_KEY);
+  if (localValue) {
+    return JSON.parse(localValue) as Record<string, CoordinatorRegistrationPayload>;
+  }
+
+  const sessionValue = window.sessionStorage.getItem(STORAGE_KEY);
+  if (!sessionValue) {
+    return {} as Record<string, CoordinatorRegistrationPayload>;
+  }
+
+  const parsed = JSON.parse(sessionValue) as Record<string, CoordinatorRegistrationPayload>;
+  window.localStorage.setItem(STORAGE_KEY, sessionValue);
+  window.sessionStorage.removeItem(STORAGE_KEY);
+  return parsed;
 }
 
 function writeStore(value: Record<string, CoordinatorRegistrationPayload>) {
@@ -18,7 +30,9 @@ function writeStore(value: Record<string, CoordinatorRegistrationPayload>) {
     return;
   }
 
-  window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  const encoded = JSON.stringify(value);
+  window.localStorage.setItem(STORAGE_KEY, encoded);
+  window.sessionStorage.setItem(STORAGE_KEY, encoded);
 }
 
 export function storePendingRegistration(payload: CoordinatorRegistrationPayload) {

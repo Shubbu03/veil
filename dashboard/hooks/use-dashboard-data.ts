@@ -164,6 +164,10 @@ export function useCreateVaultMutation() {
           throw new Error("Protocol config is not initialized for the current devnet program deployment. Initialize config before creating vaults.");
         }
 
+        if (error instanceof Error && (error.message.includes("already in use") || error.message.includes("custom program error: 0x0"))) {
+          throw new Error("A vault for this mint already exists for the connected wallet.");
+        }
+
         throw error;
       }
     },

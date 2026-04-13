@@ -41,7 +41,7 @@ export function SchedulesScreen() {
       schedule.tokenMint?.symbol.toLowerCase().includes(deferredSearch.toLowerCase());
 
     return matchesStatus && matchesSearch;
-  });
+  }).sort((left, right) => right.nextExecutionMs - left.nextExecutionMs);
 
   return (
     <AppShell coordinatorStatus={coordinatorStatus}>
@@ -128,11 +128,6 @@ export function SchedulesScreen() {
               <EmptyState
                 title="No schedules found"
                 description="Create a schedule after funding a vault. Search and filters will show up once you have schedules."
-                action={
-                  <Button asChild>
-                    <Link href="/schedules/new">Create schedule</Link>
-                  </Button>
-                }
               />
             )}
           </>

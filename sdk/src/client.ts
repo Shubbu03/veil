@@ -141,30 +141,87 @@ export class VeilClient {
         const scheduleId = generateScheduleId();
         const erJobId = generateScheduleId();
         const { root } = buildMerkleTree(opts.recipients);
+        const [vaultPda] = getVaultPda(this.wallet.publicKey, opts.tokenMint);
+        const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
         assertRecipientsMatchPerExecutionAmount(opts.recipients, opts.perExecutionAmount);
 
-        const signature = await this.createSchedule({
-            tokenMint: opts.tokenMint,
-            scheduleId,
-            intervalSecs: opts.intervalSecs,
-            reservedAmount: opts.reservedAmount,
-            perExecutionAmount: opts.perExecutionAmount,
-            merkleRoot: Array.from(root),
-            totalRecipients: opts.recipients.length,
-            erJobId,
-        });
+        let signature = "";
+
+        try {
+            signature = await this.createSchedule({
+                tokenMint: opts.tokenMint,
+                scheduleId,
+                intervalSecs: opts.intervalSecs,
+                reservedAmount: opts.reservedAmount,
+                perExecutionAmount: opts.perExecutionAmount,
+                merkleRoot: Array.from(root),
+                totalRecipients: opts.recipients.length,
+                erJobId,
+            });
+        } catch (error) {
+            if (error instanceof Error && error.message.includes("already been processed")) {
+                const existingSchedule = await this.waitForSchedule(schedulePda);
+
+                if (existingSchedule) {
+                    return { signature, scheduleId, merkleRoot: Array.from(root) };
+                }
+            }
+
+            throw error;
+        }
 
         return { signature, scheduleId, merkleRoot: Array.from(root) };
     }
 
+    private async waitForSchedule(schedulePda: PublicKey) {
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+            const schedule = await this.getSchedule(schedulePda);
+
+            if (schedule) {
+                return schedule;
+            }
+
+            await sleep(500);
+        }
+
+        return null;
+    }
+
+    private async waitForScheduleStatus(schedulePda: PublicKey, expectedStatus: ScheduleStatus) {
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+            const schedule = await this.getSchedule(schedulePda);
+
+            if (schedule?.status === expectedStatus) {
+                return schedule;
+            }
+
+            await sleep(500);
+        }
+
+        return null;
+    }
+
     async pauseSchedule(schedulePda: PublicKey, pause: boolean): Promise<string> {
-        return await this.program.methods
-            .pauseSchedule(pause)
-            .accountsPartial({
-                employer: this.wallet.publicKey,
-                schedule: schedulePda,
-            })
-            .rpc();
+        try {
+            return await this.program.methods
+                .pauseSchedule(pause)
+                .accountsPartial({
+                    employer: this.wallet.publicKey,
+                    schedule: schedulePda,
+                })
+                .rpc();
+        } catch (error) {
+            if (error instanceof Error && error.message.includes("already been processed")) {
+                const expectedStatus = pause ? ScheduleStatus.Paused : ScheduleStatus.Active;
+                const existingSchedule = await this.waitForScheduleStatus(schedulePda, expectedStatus);
+
+                if (existingSchedule) {
+                    return "";
+                }
+            }
+
+            throw error;
+        }
     }
 
     async cancelSchedule(schedulePda: PublicKey): Promise<string> {
@@ -173,14 +230,26 @@ export class VeilClient {
             throw new Error("schedule not found");
         }
 
-        return await this.program.methods
-            .cancelSchedule()
-            .accountsPartial({
-                employer: this.wallet.publicKey,
-                vault: schedule.vault,
-                schedule: schedulePda,
-            })
-            .rpc();
+        try {
+            return await this.program.methods
+                .cancelSchedule()
+                .accountsPartial({
+                    employer: this.wallet.publicKey,
+                    vault: schedule.vault,
+                    schedule: schedulePda,
+                })
+                .rpc();
+        } catch (error) {
+            if (error instanceof Error && error.message.includes("already been processed")) {
+                const existingSchedule = await this.waitForScheduleStatus(schedulePda, ScheduleStatus.Cancelled);
+
+                if (existingSchedule) {
+                    return "";
+                }
+            }
+
+            throw error;
+        }
     }
 
     async getSchedule(schedulePda: PublicKey): Promise<ScheduleAccount | null> {
@@ -284,6 +353,10 @@ export class VeilClient {
 
 export function generateScheduleId(): number[] {
     return Array.from(crypto.getRandomValues(new Uint8Array(32)));
+}
+
+async function sleep(ms: number) {
+    await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function parseScheduleStatus(status: any): ScheduleStatus {

@@ -12,12 +12,17 @@ import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { formatAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+const navItems: ReadonlyArray<{
+  href: string;
+  label: string;
+  icon: typeof ChartBar;
+  exact?: boolean;
+}> = [
   { href: "/", label: "Overview", icon: ChartBar },
   { href: "/vaults", label: "Vaults", icon: Coins },
-  { href: "/schedules", label: "Schedules", icon: Queue },
+  { href: "/schedules", label: "Schedules", icon: Queue, exact: true },
   { href: "/schedules/new", label: "Create", icon: ClockCounterClockwise },
-] as const;
+];
 
 const SIDEBAR_STORAGE_KEY = "veil-dashboard-sidebar-collapsed";
 
@@ -59,7 +64,7 @@ export function AppShell({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const currentSection = navItems.find(({ href }) => pathname === href || (href !== "/" && pathname.startsWith(href)))?.label ?? "Overview";
+  const currentSection = navItems.find((item) => isNavItemActive(pathname, item.href, item.exact))?.label ?? "Overview";
 
   return (
     <div className="min-h-screen">
@@ -87,8 +92,8 @@ export function AppShell({
           </div>
 
           <nav className="flex-1 space-y-1 p-3">
-            {navItems.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+            {navItems.map(({ href, label, icon: Icon, exact }) => {
+              const active = isNavItemActive(pathname, href, exact);
 
               return (
                 <Link
@@ -159,4 +164,16 @@ function getStoredSidebarCollapsed() {
   }
 
   return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+}
+
+function isNavItemActive(pathname: string, href: string, exact = false) {
+  if (href === "/") {
+    return pathname === "/";
+  }
+
+  if (exact) {
+    return pathname === href;
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
