@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
+}
+
+@theme {
+  --color-background: oklch(0.163 0.024 255.8);
+  --color-foreground: oklch(0.973 0.008 88.1);
+  --color-card: oklch(0.213 0.03 255.6 / 82%);
+  --color-card-foreground: oklch(0.973 0.008 88.1);
+  --color-muted: oklch(0.25 0.025 255.2 / 70%);
+  --color-muted-foreground: oklch(0.758 0.023 259.8);
+  --color-border: oklch(0.34 0.035 254.9 / 70%);
+  --color-primary: oklch(0.802 0.164 78.2);
+  --color-primary-foreground: oklch(0.19 0.03 255.2);
+  --color-accent: oklch(0.764 0.127 209.1);
+  --color-accent-foreground: oklch(0.178 0.025 255.8);
+  --color-success: oklch(0.756 0.163 154.6);
+  --color-success-foreground: oklch(0.18 0.025 164.4);
+  --color-warning: oklch(0.841 0.137 86.8);
+  --color-warning-foreground: oklch(0.21 0.031 84.6);
+  --color-destructive: oklch(0.694 0.187 24.4);
+  --color-destructive-foreground: oklch(0.97 0.008 88.1);
+  --color-ring: oklch(0.764 0.127 209.1);
+  --radius-sm: 0.6rem;
+  --radius-md: 0.95rem;
+  --radius-lg: 1.35rem;
+  --radius-xl: 1.8rem;
+  --shadow-panel: 0 14px 40px rgba(4, 8, 20, 0.35);
+  --animate-fade-in: fade-in 220ms ease-out;
+  --animate-rise-in: rise-in 280ms ease-out;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+:root {
+  color-scheme: dark;
+  --app-font-sans: "Fira Sans", "IBM Plex Sans", "Segoe UI", sans-serif;
+  --app-font-mono: "Fira Code", "IBM Plex Mono", "SFMono-Regular", monospace;
+}
+
+.light {
+  color-scheme: light;
+  --color-background: oklch(0.979 0.004 95.1);
+  --color-foreground: oklch(0.211 0.028 254.1);
+  --color-card: oklch(0.998 0.003 106.4 / 88%);
+  --color-card-foreground: oklch(0.211 0.028 254.1);
+  --color-muted: oklch(0.938 0.008 247.9 / 80%);
+  --color-muted-foreground: oklch(0.451 0.028 256.7);
+  --color-border: oklch(0.873 0.012 247.8 / 85%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    background-image:
+      radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 20%, transparent) 0, transparent 28%),
+      radial-gradient(circle at top right, color-mix(in oklab, var(--color-accent) 18%, transparent) 0, transparent 24%),
+      linear-gradient(180deg, color-mix(in oklab, var(--color-background) 88%, black) 0%, var(--color-background) 100%);
+    background-attachment: fixed;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 35%, transparent);
+    color: var(--color-foreground);
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-lg border border-border/80 bg-card/90 backdrop-blur-xl;
+    box-shadow: var(--shadow-panel);
+  }
+
+  .data-grid {
+    background-image:
+      linear-gradient(to right, color-mix(in oklab, var(--color-border) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--color-border) 55%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(
+      120deg,
+      color-mix(in oklab, var(--color-primary) 90%, white),
+      color-mix(in oklab, var(--color-accent) 75%, white)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
