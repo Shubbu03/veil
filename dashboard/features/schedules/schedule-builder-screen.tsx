@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { BN } from "@coral-xyz/anchor";
 import { useAnchorWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
-import { ArrowLeft, CaretDown, Trash, UploadSimple } from "phosphor-react";
+import { ArrowLeft, CaretDown, Info, Trash, UploadSimple } from "phosphor-react";
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/empty-state";
 import { SectionHeader } from "@/components/section-header";
@@ -311,8 +311,9 @@ export function ScheduleBuilderScreen() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="reservedAmount">
-                    Reserved amount
+                  <label className="flex items-center gap-2 text-sm font-medium" htmlFor="reservedAmount">
+                    <span>Reserved amount</span>
+                    <HelpHint text="This is the total amount set aside in the vault for this schedule. It must cover at least one full payout cycle." />
                   </label>
                   <Input
                     id="reservedAmount"
@@ -330,7 +331,10 @@ export function ScheduleBuilderScreen() {
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">Recipients</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">Recipients</p>
+                      <HelpHint text="Add one recipient per row. For uploads, use two columns: address and amount. A header row is allowed." />
+                    </div>
                     <div className="flex items-center gap-2">
                       <Button
                         className="hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
@@ -560,4 +564,17 @@ function toAnchorBn(value: bigint) {
 
 function toIntervalSecs(value: number, unit: "hours" | "days") {
   return value * (unit === "days" ? 24 * 60 * 60 : 60 * 60);
+}
+
+function HelpHint({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-flex">
+      <span className="inline-flex size-4 cursor-help items-center justify-center rounded-full border border-border/70 text-muted-foreground transition group-hover:border-border group-hover:text-foreground">
+        <Info size={11} weight="bold" />
+      </span>
+      <span className="pointer-events-none absolute left-1/2 top-[calc(100%+0.5rem)] z-20 w-64 -translate-x-1/2 rounded-2xl border border-border bg-card px-3 py-2 text-xs font-medium leading-5 text-card-foreground opacity-0 shadow-(--shadow-panel) transition duration-150 group-hover:opacity-100">
+        {text}
+      </span>
+    </span>
+  );
 }
