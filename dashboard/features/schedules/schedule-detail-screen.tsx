@@ -78,8 +78,12 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                   </div>
                 </CardHeader>
                 <CardContent className="grid gap-4 pt-5 md:grid-cols-2">
-                  <DetailItem label="Next execution" value={formatDateTime(scheduleData.nextExecutionMs)} />
-                  <DetailItem label="Relative time" value={formatRelativeTime(scheduleData.nextExecutionMs)} />
+                  {scheduleData.status !== "Cancelled" ? (
+                    <>
+                      <DetailItem label="Next execution" value={formatDateTime(scheduleData.nextExecutionMs)} />
+                      <DetailItem label="Relative time" value={formatRelativeTime(scheduleData.nextExecutionMs)} />
+                    </>
+                  ) : null}
                   <DetailItem
                     label="Per cycle"
                     value={

@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { BN } from "@coral-xyz/anchor";
 import { useAnchorWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
-import { ArrowLeft } from "phosphor-react";
+import { ArrowLeft, CaretDown, Trash, UploadSimple } from "phosphor-react";
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/empty-state";
 import { SectionHeader } from "@/components/section-header";
@@ -18,9 +18,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useCoordinatorHealthQuery, useEmployerVaultsQuery, useRegisterScheduleMutation } from "@/hooks/use-dashboard-data";
+import { useConfigQuery, useCoordinatorHealthQuery, useEmployerVaultsQuery, useRegisterScheduleMutation } from "@/hooks/use-dashboard-data";
 import { notify, userFacingError } from "@/lib/notify";
+import { paginateItems } from "@/lib/pagination";
 import { storePendingRegistration } from "@/lib/pending-registrations";
+import { parseRecipientCsvFile, parseRecipientExcelFile } from "@/lib/recipient-import";
 import { decimalToRawAmount, rawAmountToDecimal } from "@/lib/token";
 import { deriveSchedulePdaFromMint } from "@/lib/veil";
 import { useVeilClient } from "@/hooks/use-veil-client";
@@ -61,8 +63,15 @@ export function ScheduleBuilderScreen() {
   const wallet = useAnchorWallet();
   const client = useVeilClient();
   const vaults = useEmployerVaultsQuery();
+  const config = useConfigQuery();
   const coordinatorHealth = useCoordinatorHealthQuery();
   const registerMutation = useRegisterScheduleMutation("pending");
+  const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
+  const [uploadType, setUploadType] = useState<"csv" | "excel" | null>(null);
+  const [recipientPage, setRecipientPage] = useState(1);
+  const uploadMenuRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingUploadTypeRef = useRef<"csv" | "excel" | null>(null);
 
   const coordinatorStatus = coordinatorHealth.data
     ? coordinatorHealth.data.status === "healthy"
@@ -84,7 +93,7 @@ export function ScheduleBuilderScreen() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "recipients",
   });
@@ -104,6 +113,39 @@ export function ScheduleBuilderScreen() {
     selectedVault?.tokenMint.decimals !== undefined ? decimalToRawAmount(reservedAmountValue || "0", selectedVault.tokenMint.decimals) : BigInt(0);
   const reservedAmountTooHigh = selectedVault ? reservedAmountRaw > selectedVault.availableRaw : false;
   const reservedAmountTooLow = selectedVault ? reservedAmountRaw > BigInt(0) && reservedAmountRaw < recipientTotalRaw : false;
+  const maxRecipients = Math.min(config.data?.maxRecipients ?? 1000, 1000);
+  const paginatedRecipients = paginateItems(
+    fields.map((field, index) => ({ field, index })),
+    recipientPage,
+    10,
+  );
+
+  useEffect(() => {
+    if (!uploadMenuOpen) {
+      return;
+    }
+
+    function onPointerDown(event: MouseEvent) {
+      if (uploadMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setUploadMenuOpen(false);
+    }
+
+    function onEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setUploadMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onEscape);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onEscape);
+    };
+  }, [uploadMenuOpen]);
 
   async function onSubmit(values: FormValues) {
     if (!client || !wallet || !selectedVault) {
@@ -164,6 +206,38 @@ export function ScheduleBuilderScreen() {
       });
     } catch (error) {
       notify(userFacingError(error, "Could not create the schedule. Try again."), "error");
+    }
+  }
+
+  async function handleRecipientFile(file: File) {
+    try {
+      const selectedUploadType = pendingUploadTypeRef.current;
+      if (!selectedUploadType) {
+        throw new Error("Choose a file type first.");
+      }
+
+      const importedRecipients =
+        selectedUploadType === "excel"
+          ? await parseRecipientExcelFile(file, maxRecipients)
+          : await parseRecipientCsvFile(file, maxRecipients);
+
+      if (!importedRecipients) {
+        return;
+      }
+
+      replace(importedRecipients);
+      setRecipientPage(1);
+      notify(`${importedRecipients.length} recipients imported.`, "success");
+    } catch (error) {
+      notify(userFacingError(error, "Could not import recipients."), "error");
+    } finally {
+      setUploadMenuOpen(false);
+      setUploadType(null);
+      pendingUploadTypeRef.current = null;
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   }
 
@@ -257,17 +331,98 @@ export function ScheduleBuilderScreen() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium">Recipients</p>
-                    <Button
-                      onClick={() => append({ address: "", amount: "" })}
-                      size="sm"
-                      type="button"
-                      variant="secondary"
-                    >
-                      Add recipient
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        className="hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                        disabled={fields.length === 0}
+                        onClick={() => {
+                          replace([{ address: "", amount: "" }]);
+                          setRecipientPage(1);
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trash size={16} weight="bold" />
+                        Delete all
+                      </Button>
+                      <div className="relative" ref={uploadMenuRef}>
+                        <Button
+                          onClick={() => setUploadMenuOpen((current) => !current)}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <UploadSimple size={16} weight="bold" />
+                          Upload
+                          <CaretDown size={14} weight="bold" />
+                        </Button>
+                        {uploadMenuOpen ? (
+                          <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 min-w-[180px] rounded-lg border border-border bg-card p-2 shadow-(--shadow-panel)">
+                            <button
+                              className="flex w-full items-center rounded-2xl px-3 py-2 text-left text-sm font-medium transition hover:bg-muted/70"
+                              onClick={() => {
+                                pendingUploadTypeRef.current = "excel";
+                                setUploadType("excel");
+                                fileInputRef.current?.click();
+                              }}
+                              type="button"
+                            >
+                              Excel
+                            </button>
+                            <button
+                              className="flex w-full items-center rounded-2xl px-3 py-2 text-left text-sm font-medium transition hover:bg-muted/70"
+                              onClick={() => {
+                                pendingUploadTypeRef.current = "csv";
+                                setUploadType("csv");
+                                fileInputRef.current?.click();
+                              }}
+                              type="button"
+                            >
+                              CSV
+                            </button>
+                          </div>
+                        ) : null}
+                        <input
+                          accept={
+                            uploadType === "excel"
+                              ? ".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                              : ".csv,text/csv"
+                          }
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) {
+                              return;
+                            }
+
+                            void handleRecipientFile(file);
+                          }}
+                          ref={fileInputRef}
+                          type="file"
+                        />
+                      </div>
+                      <Button
+                        disabled={fields.length >= maxRecipients}
+                        onClick={() => {
+                          if (fields.length >= maxRecipients) {
+                            notify(`You can add up to ${maxRecipients} recipients in one schedule.`, "error");
+                            return;
+                          }
+
+                          append({ address: "", amount: "" });
+                          setRecipientPage(Math.ceil((fields.length + 1) / 10));
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="secondary"
+                      >
+                        Add recipient
+                      </Button>
+                    </div>
                   </div>
 
-                  {fields.map((field, index) => (
+                  {paginatedRecipients.pageItems.map(({ field, index }) => (
                     <div key={field.id} className="grid gap-3 rounded-3xl border border-border/70 bg-muted/35 p-4 md:grid-cols-[minmax(0,1fr)_160px_auto]">
                       <Input
                         {...form.register(`recipients.${index}.address`)}
@@ -279,11 +434,65 @@ export function ScheduleBuilderScreen() {
                         error={form.formState.errors.recipients?.[index]?.amount?.message}
                         placeholder="0.00"
                       />
-                      <Button onClick={() => remove(index)} size="sm" type="button" variant="ghost">
+                      <Button
+                        onClick={() => {
+                          remove(index);
+                          const nextTotal = fields.length - 1;
+                          const nextPageCount = Math.max(1, Math.ceil(nextTotal / 10));
+                          setRecipientPage((current) => Math.min(current, nextPageCount));
+                        }}
+                        className="hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
                         Remove
                       </Button>
                     </div>
                   ))}
+
+                  {fields.length > 10 ? (
+                    <div className="flex flex-col gap-3 border-t border-border/70 pt-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        Showing {(paginatedRecipients.currentPage - 1) * 10 + 1}-
+                        {Math.min(paginatedRecipients.currentPage * 10, fields.length)} of {fields.length} recipients
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          disabled={!paginatedRecipients.hasPreviousPage}
+                          onClick={() => setRecipientPage((current) => Math.max(1, current - 1))}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          Previous
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          {paginatedRecipients.pageNumbers.map((pageNumber) => (
+                            <Button
+                              className="min-w-10"
+                              key={pageNumber}
+                              onClick={() => setRecipientPage(pageNumber)}
+                              size="sm"
+                              type="button"
+                              variant={pageNumber === paginatedRecipients.currentPage ? "secondary" : "ghost"}
+                            >
+                              {pageNumber}
+                            </Button>
+                          ))}
+                        </div>
+                        <Button
+                          disabled={!paginatedRecipients.hasNextPage}
+                          onClick={() => setRecipientPage((current) => current + 1)}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
