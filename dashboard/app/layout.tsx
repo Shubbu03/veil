@@ -15,6 +15,11 @@ import { AppProviders } from "@/providers/app-providers";
 export const metadata: Metadata = {
   title: "Veil",
   description: "Veil dashboard for vaults, schedules, and private payout operations on Solana.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/favicon.ico",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
