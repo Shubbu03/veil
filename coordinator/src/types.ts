@@ -50,3 +50,20 @@ export interface ExecutionStageRecord {
     error?: string;
     details?: Record<string, unknown>;
 }
+
+export interface ExecutionAttempt {
+    id: number;
+    runId: number;
+    attemptNumber: number;
+    stage: ExecutionStage;
+    status: ExecutionStageStatus;
+    txSignature: string | null;
+    details: Record<string, unknown> | null;
+    error?: string;
+    startedAt: number;
+    finishedAt: number;
+}
+
+export interface ExecutionRunWithAttempts extends ExecutionRun {
+    attempts: ExecutionAttempt[];
+}

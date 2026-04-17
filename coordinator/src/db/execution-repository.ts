@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray, lte, sql } from "drizzle-orm";
-import { db, executionAttempts, executionRuns, type ExecutionRunRow } from "./index";
+import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
+import { db, executionAttempts, executionRuns, type ExecutionAttemptRow, type ExecutionRunRow } from "./index";
 import { config } from "../config";
-import type { ExecutionRun, ExecutionRunStatus, ExecutionStageRecord } from "../types";
+import type { ExecutionAttempt, ExecutionRun, ExecutionRunStatus, ExecutionRunWithAttempts, ExecutionStageRecord } from "../types";
 import {
     executionAttemptsTotal,
     executionRunDurationSeconds,
@@ -12,6 +12,38 @@ import {
 const RUNNABLE_STATUSES: ExecutionRunStatus[] = ["pending", "failed"];
 
 export class ExecutionRepository {
+    async listRunsForSchedule(schedulePda: string, limit: number): Promise<ExecutionRunWithAttempts[]> {
+        const rows = await db
+            .select()
+            .from(executionRuns)
+            .where(eq(executionRuns.schedulePda, schedulePda))
+            .orderBy(desc(executionRuns.scheduledFor), desc(executionRuns.id))
+            .limit(limit);
+
+        if (rows.length === 0) {
+            return [];
+        }
+
+        const runIds = rows.map((row) => row.id);
+        const attemptRows = await db
+            .select()
+            .from(executionAttempts)
+            .where(inArray(executionAttempts.runId, runIds))
+            .orderBy(desc(executionAttempts.attemptNumber), asc(executionAttempts.stage), desc(executionAttempts.startedAt));
+
+        const attemptsByRunId = new Map<number, ExecutionAttempt[]>();
+        for (const row of attemptRows) {
+            const existing = attemptsByRunId.get(row.runId) ?? [];
+            existing.push(mapExecutionAttempt(row));
+            attemptsByRunId.set(row.runId, existing);
+        }
+
+        return rows.map((row) => ({
+            ...mapExecutionRun(row),
+            attempts: attemptsByRunId.get(row.id) ?? [],
+        }));
+    }
+
     async ensureRunForSchedule(schedulePda: string, scheduledFor: number): Promise<ExecutionRun> {
         const now = unixTimestamp();
 
@@ -230,6 +262,21 @@ function mapExecutionRun(row: ExecutionRunRow): ExecutionRun {
         delegateSignature: row.delegateSignature ?? null,
         commitSignature: row.commitSignature ?? null,
         lastError: row.lastError ?? undefined,
+    };
+}
+
+function mapExecutionAttempt(row: ExecutionAttemptRow): ExecutionAttempt {
+    return {
+        id: row.id,
+        runId: row.runId,
+        attemptNumber: row.attemptNumber,
+        stage: row.stage as ExecutionAttempt["stage"],
+        status: row.status as ExecutionAttempt["status"],
+        txSignature: row.txSignature ?? null,
+        details: row.details ?? null,
+        error: row.error ?? undefined,
+        startedAt: row.startedAt,
+        finishedAt: row.finishedAt,
     };
 }
 

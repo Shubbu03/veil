@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import { recipientStore } from "./store";
 import { ScheduleRecipientData } from "./types";
+import { executionRepository } from "./db/execution-repository";
 import {
     RegistrationValidationError,
     RegisterScheduleRequest,
@@ -120,6 +121,25 @@ router.get("/schedules/:schedulePda", async (req: Request, res: Response) => {
         logger.error({ err: error, schedulePda: req.params.schedulePda }, "Error fetching schedule");
         res.status(500).json({
             error: error.message || "Failed to fetch schedule",
+        });
+    }
+});
+
+router.get("/schedules/:schedulePda/executions", async (req: Request, res: Response) => {
+    try {
+        const { schedulePda } = req.params;
+        const rawLimit = Number.parseInt(String(req.query.limit ?? "10"), 10);
+        const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 25) : 10;
+        const runs = await executionRepository.listRunsForSchedule(schedulePda, limit);
+
+        res.json({
+            schedulePda,
+            runs,
+        });
+    } catch (error: any) {
+        logger.error({ err: error, schedulePda: req.params.schedulePda }, "Error fetching execution history");
+        res.status(500).json({
+            error: error.message || "Failed to fetch execution history",
         });
     }
 });
