@@ -17,6 +17,43 @@ export interface CoordinatorRegistrationStatus {
   createdAt: number;
 }
 
+export interface CoordinatorExecutionAttempt {
+  id: number;
+  runId: number;
+  attemptNumber: number;
+  stage: "delegate" | "claim" | "commit";
+  status: "succeeded" | "failed";
+  txSignature: string | null;
+  details: Record<string, unknown> | null;
+  error?: string;
+  startedAt: number;
+  finishedAt: number;
+}
+
+export interface CoordinatorExecutionRun {
+  id: number;
+  schedulePda: string;
+  scheduledFor: number;
+  status: "pending" | "running" | "succeeded" | "failed" | "exhausted";
+  attemptCount: number;
+  maxAttempts: number;
+  nextAttemptAt: number;
+  startedAt: number | null;
+  finishedAt: number | null;
+  claimedCount: number;
+  alreadyPaidCount: number;
+  failedClaimCount: number;
+  delegateSignature: string | null;
+  commitSignature: string | null;
+  lastError?: string;
+  attempts: CoordinatorExecutionAttempt[];
+}
+
+export interface CoordinatorExecutionHistory {
+  schedulePda: string;
+  runs: CoordinatorExecutionRun[];
+}
+
 export interface CoordinatorRegistrationPayload {
   schedulePda: string;
   scheduleId: number[];
@@ -56,6 +93,17 @@ export async function getCoordinatorSchedule(schedulePda: string) {
 
     throw error;
   }
+}
+
+export async function getCoordinatorExecutionHistory(schedulePda: string, limit = 10) {
+  if (!coordinatorApi) {
+    return null;
+  }
+
+  const response = await coordinatorApi.get<CoordinatorExecutionHistory>(`/schedules/${schedulePda}/executions`, {
+    params: { limit },
+  });
+  return response.data;
 }
 
 export async function registerScheduleWithCoordinator(payload: CoordinatorRegistrationPayload) {

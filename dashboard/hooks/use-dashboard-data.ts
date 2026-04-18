@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAnchorWallet } from "@solana/wallet-adapter-react";
-import { getCoordinatorHealth, getCoordinatorSchedule, registerScheduleWithCoordinator, type CoordinatorRegistrationPayload } from "@/lib/coordinator";
+import { getCoordinatorExecutionHistory, getCoordinatorHealth, getCoordinatorSchedule, registerScheduleWithCoordinator, type CoordinatorRegistrationPayload } from "@/lib/coordinator";
 import { dashboardEnv } from "@/lib/env";
 import { useVeilClient } from "@/hooks/use-veil-client";
 import {
@@ -21,6 +21,7 @@ const queryKeys = {
   config: ["veil", "config"] as const,
   coordinatorHealth: ["coordinator", "health"] as const,
   coordinatorSchedule: (schedulePda: string) => ["coordinator", "schedule", schedulePda] as const,
+  coordinatorExecutionHistory: (schedulePda: string, limit: number) => ["coordinator", "execution-history", schedulePda, limit] as const,
   vaults: (employer: string | undefined) => ["veil", "vaults", employer] as const,
   vault: (employer: string | undefined, mint: string) => ["veil", "vault", employer, mint] as const,
   walletTokenBalance: (owner: string | undefined, mint: string) => ["veil", "wallet-token-balance", owner, mint] as const,
@@ -58,6 +59,14 @@ export function useCoordinatorScheduleQuery(schedulePda: string) {
   return useQuery({
     queryKey: queryKeys.coordinatorSchedule(schedulePda),
     queryFn: () => getCoordinatorSchedule(schedulePda),
+    enabled: Boolean(dashboardEnv.coordinatorUrl && schedulePda),
+  });
+}
+
+export function useCoordinatorExecutionHistoryQuery(schedulePda: string, limit = 10) {
+  return useQuery({
+    queryKey: queryKeys.coordinatorExecutionHistory(schedulePda, limit),
+    queryFn: () => getCoordinatorExecutionHistory(schedulePda, limit),
     enabled: Boolean(dashboardEnv.coordinatorUrl && schedulePda),
   });
 }
