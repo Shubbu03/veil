@@ -336,7 +336,7 @@ export class VeilClient {
                 leafIndex,
                 proof
             )
-            .accountsPartial({
+            .accounts({
                 erAuthority: erAuthority.publicKey,
                 config: configPda,
                 vault: vaultPda,
