@@ -62,12 +62,18 @@ Copy `.env.example` to `.env` and configure the following environment variables:
 
 ```bash
 SOLANA_RPC_URL=https://api.devnet.solana.com
+CLAIM_EXECUTION_LAYER=solana
 ```
 
 **Options:**
 - Devnet: `https://api.devnet.solana.com`
 - Mainnet: `https://api.mainnet-beta.solana.com`
 - Custom RPC: Your RPC provider URL
+
+**Claim Execution Layer:**
+- `solana` (default) executes payout claims on the base Solana RPC
+- `er` executes payout claims on the ER RPC
+- Keep this on `solana` unless your token-account flow is explicitly built for ER writes
 
 ### ER Configuration
 
@@ -110,6 +116,7 @@ DB_POOL_MAX=10
 ```bash
 # Solana
 SOLANA_RPC_URL=https://api.devnet.solana.com
+CLAIM_EXECUTION_LAYER=solana
 
 # ER Configuration
 ER_RPC_URL=https://devnet-as.magicblock.app/

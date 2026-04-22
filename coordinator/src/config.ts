@@ -33,6 +33,10 @@ function normalizeErRpcUrl(value: string | undefined): string {
     return trimmed;
 }
 
+function parseClaimExecutionLayer(value: string | undefined): "solana" | "er" {
+    return value?.trim().toLowerCase() === "er" ? "er" : "solana";
+}
+
 function loadKeypair(keypairPath: string): Keypair {
     const resolved = path.resolve(keypairPath);
     if (!fs.existsSync(resolved)) {
@@ -90,6 +94,7 @@ function loadKeypairFromEnv(): Keypair | null {
 
 export const config = {
     solanaRpcUrl: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
+    claimExecutionLayer: parseClaimExecutionLayer(process.env.CLAIM_EXECUTION_LAYER),
 
     erRpcUrl: normalizeErRpcUrl(process.env.ER_RPC_URL),
     erValidator: process.env.ER_VALIDATOR || "MAS1Dt9qreoRMQ14YQuhg8UTZMMzDdKhmkZMECCzk57",

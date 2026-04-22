@@ -1,6 +1,10 @@
-import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
+import { Connection, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { AnchorProvider, Program, Wallet, Idl, BN } from "@coral-xyz/anchor";
-import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import {
+    createAssociatedTokenAccountIdempotentInstruction,
+    getAssociatedTokenAddress,
+    TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import { config } from "./config";
 import { ScheduleRecipientData } from "./types";
 import {
@@ -43,6 +47,46 @@ export async function executeSchedule(
     let delegateSignature: string | undefined;
     let commitSignature: string | undefined;
     const erConnection = new Connection(config.erRpcUrl, "confirmed");
+
+    if (config.claimExecutionLayer === "solana") {
+        const claimSummary = await executeClaimsOnConnection(
+            solanaConnection,
+            erAuthority,
+            schedulePda,
+            scheduleId,
+            recipientData
+        );
+        await onStageCompleted?.({
+            stage: "claim",
+            status: claimSummary.failedClaims > 0 ? "failed" : "succeeded",
+            startedAt: claimSummary.startedAt,
+            finishedAt: claimSummary.finishedAt,
+            details: {
+                claimedCount: claimSummary.successfulClaims,
+                alreadyPaidCount: claimSummary.alreadyPaidClaims,
+                failedClaimCount: claimSummary.failedClaims,
+                failedRecipients: claimSummary.failedRecipients,
+                failedClaimErrors: claimSummary.failedClaimErrors,
+                executionLayer: "solana",
+            },
+            error:
+                claimSummary.failedClaims > 0
+                    ? formatClaimStageError(claimSummary.failedClaimErrors)
+                    : undefined,
+        });
+
+        return {
+            status: claimSummary.failedClaims > 0 ? "failed" : "succeeded",
+            claimedCount: claimSummary.successfulClaims,
+            alreadyPaidCount: claimSummary.alreadyPaidClaims,
+            failedClaimCount: claimSummary.failedClaims,
+            error:
+                claimSummary.failedClaims > 0
+                    ? formatClaimStageError(claimSummary.failedClaimErrors)
+                    : undefined,
+            retryable: true,
+        };
+    }
 
     const delegateResult = await runStage(
         "delegate",
@@ -89,7 +133,7 @@ export async function executeSchedule(
         "Delegate stage succeeded"
     );
 
-    const claimSummary = await executeClaimsOnER(
+    const claimSummary = await executeClaimsOnConnection(
         erConnection,
         erAuthority,
         schedulePda,
@@ -203,8 +247,8 @@ async function delegateSchedule(
         .rpc();
 }
 
-async function executeClaimsOnER(
-    erConnection: Connection,
+async function executeClaimsOnConnection(
+    executionConnection: Connection,
     erAuthority: Wallet,
     schedulePda: PublicKey,
     scheduleId: number[],
@@ -223,7 +267,7 @@ async function executeClaimsOnER(
     const idlPath = path.resolve(__dirname, "../../sdk/src/idl/idl.json");
     const idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
 
-    const erProvider = new AnchorProvider(erConnection, erAuthority, {
+    const erProvider = new AnchorProvider(executionConnection, erAuthority, {
         commitment: "confirmed",
     });
     const erProgram = new Program(idl as Idl, erProvider);
@@ -246,7 +290,12 @@ async function executeClaimsOnER(
         const amount = new BN(recipient.amount.toString());
 
         try {
-            const recipientAta = await getAssociatedTokenAddress(tokenMint, recipientPubkey);
+            const recipientAta = await ensureRecipientAta(
+                executionConnection,
+                erAuthority,
+                recipientPubkey,
+                tokenMint
+            );
 
             const tx = await erProgram.methods
                 .claimPayment(
@@ -269,8 +318,8 @@ async function executeClaimsOnER(
                 .transaction();
 
             // Send to ER
-            const signature = await erConnection.sendTransaction(tx, [erAuthority.payer]);
-            await erConnection.confirmTransaction(signature, "confirmed");
+            const signature = await executionConnection.sendTransaction(tx, [erAuthority.payer]);
+            await executionConnection.confirmTransaction(signature, "confirmed");
             successfulClaims += 1;
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
@@ -306,6 +355,34 @@ async function executeClaimsOnER(
         startedAt,
         finishedAt: unixTimestamp(),
     };
+}
+
+async function ensureRecipientAta(
+    connection: Connection,
+    payer: Wallet,
+    recipient: PublicKey,
+    tokenMint: PublicKey
+): Promise<PublicKey> {
+    const recipientAta = await getAssociatedTokenAddress(tokenMint, recipient);
+    const existingAccount = await connection.getAccountInfo(recipientAta, "confirmed");
+
+    if (existingAccount) {
+        return recipientAta;
+    }
+
+    const transaction = new Transaction().add(
+        createAssociatedTokenAccountIdempotentInstruction(
+            payer.publicKey,
+            recipientAta,
+            recipient,
+            tokenMint
+        )
+    );
+
+    const signature = await connection.sendTransaction(transaction, [payer.payer]);
+    await connection.confirmTransaction(signature, "confirmed");
+
+    return recipientAta;
 }
 
 async function commitAndUndelegate(
