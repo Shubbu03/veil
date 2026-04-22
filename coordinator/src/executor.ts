@@ -1,4 +1,4 @@
-import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { AnchorProvider, Program, Wallet, Idl, BN } from "@coral-xyz/anchor";
 import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { config } from "./config";
@@ -7,7 +7,6 @@ import {
     getConfigPda,
     getVaultPda,
     getVaultAtaPda,
-    PROGRAM_ID,
 } from "@veil-dev/sdk";
 import * as fs from "fs";
 import * as path from "path";
@@ -25,9 +24,6 @@ export interface ExecuteScheduleResult {
     retryable: boolean;
 }
 const logger = createLogger("executor");
-const MAGIC_PROGRAM_ID = new PublicKey("Magic11111111111111111111111111111111111111");
-const MAGIC_CONTEXT_ID = new PublicKey("MagicContext1111111111111111111111111111111");
-const DELEGATION_PROGRAM_ID = new PublicKey("DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh");
 
 export async function executeSchedule(
     solanaConnection: Connection,
@@ -169,30 +165,12 @@ async function delegateSchedule(
         commitment: "confirmed",
     });
     const program = new Program(idl as Idl, provider);
-    const [configPda] = getConfigPda();
-    const [bufferPda] = PublicKey.findProgramAddressSync([Buffer.from("buffer"), schedulePda.toBuffer()], PROGRAM_ID);
-    const [delegationRecordPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("delegation"), schedulePda.toBuffer()],
-        DELEGATION_PROGRAM_ID
-    );
-    const [delegationMetadataPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("delegation-metadata"), schedulePda.toBuffer()],
-        DELEGATION_PROGRAM_ID
-    );
 
     return await program.methods
         .delegateSchedule(scheduleId)
-        .accounts({
+        .accountsPartial({
             payer: erAuthority.publicKey,
-            config: configPda,
             schedule: schedulePda,
-            bufferPda,
-            delegationRecordPda,
-            delegationMetadataPda,
-            pda: schedulePda,
-            systemProgram: SystemProgram.programId,
-            ownerProgram: PROGRAM_ID,
-            delegationProgram: DELEGATION_PROGRAM_ID,
         })
         .signers([erAuthority.payer])
         .rpc();
@@ -314,12 +292,10 @@ async function commitAndUndelegate(
 
     const signature = await program.methods
         .commit()
-        .accounts({
+        .accountsPartial({
             payer: erAuthority.publicKey,
             config: configPda,
             delegatedAccount: schedulePda,
-            magicProgram: MAGIC_PROGRAM_ID,
-            magicContext: MAGIC_CONTEXT_ID,
         })
         .signers([erAuthority.payer])
         .rpc();
