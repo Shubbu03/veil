@@ -336,7 +336,7 @@ export class VeilClient {
                 leafIndex,
                 proof
             )
-            .accounts({
+            .accountsStrict({
                 erAuthority: erAuthority.publicKey,
                 config: configPda,
                 vault: vaultPda,
