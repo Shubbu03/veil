@@ -10,16 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEmployerSchedulesQuery, useEmployerVaultsQuery } from "@/hooks/use-dashboard-data";
-import { formatInteger, formatRelativeTime } from "@/lib/format";
+import { formatInteger } from "@/lib/format";
 import { rawAmountToDecimal } from "@/lib/token";
-import { scheduleStatusTone } from "@/lib/veil";
+import { getScheduleNextExecutionLabel, scheduleStatusTone, sortSchedulesForDisplay } from "@/lib/veil";
 
 export function OverviewScreen() {
   const { connected } = useWallet();
   const vaults = useEmployerVaultsQuery();
   const schedules = useEmployerSchedulesQuery();
 
-  const sortedSchedules = [...(schedules.data ?? [])].sort((left, right) => left.nextExecutionMs - right.nextExecutionMs);
+  const sortedSchedules = sortSchedulesForDisplay(schedules.data ?? []);
   const previewSchedules = sortedSchedules.slice(0, 2);
   const activeSchedules = (schedules.data ?? []).filter((schedule) => schedule.status === "Active").length;
 
@@ -99,10 +99,10 @@ export function OverviewScreen() {
                               <p className="text-lg font-semibold">{schedule.tokenMint?.symbol ?? "Unknown"} schedule</p>
                               <Badge tone={scheduleStatusTone(schedule.status)}>{schedule.status}</Badge>
                             </div>
-                            {schedule.status !== "Cancelled" ? (
-                              <p className="text-sm text-muted-foreground">
-                                Next run {formatRelativeTime(schedule.nextExecutionMs)}
-                              </p>
+                            {schedule.status === "Active" ? (
+                              <p className="text-sm text-muted-foreground">Next run {getScheduleNextExecutionLabel(schedule)}</p>
+                            ) : schedule.status === "Paused" ? (
+                              <p className="text-sm text-muted-foreground">Schedule is paused</p>
                             ) : null}
                             <p className="text-sm text-muted-foreground">
                               {schedule.tokenMint

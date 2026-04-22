@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowSquareOut } from "phosphor-react";
+import { ArrowLeft, ArrowSquareOut, CopySimple, X } from "phosphor-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { AppShell } from "@/components/app-shell";
 import { SectionHeader } from "@/components/section-header";
@@ -10,6 +10,7 @@ import { WalletGate } from "@/components/wallet-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { useCancelScheduleMutation, useCoordinatorExecutionHistoryQuery, useCoordinatorHealthQuery, useCoordinatorScheduleQuery, usePauseScheduleMutation, useScheduleDetailQuery, useRegisterScheduleMutation } from "@/hooks/use-dashboard-data";
 import type { CoordinatorExecutionAttempt, CoordinatorExecutionRun, CoordinatorRegistrationPayload } from "@/lib/coordinator";
 import { clearPendingRegistration, getPendingRegistration } from "@/lib/pending-registrations";
@@ -17,7 +18,7 @@ import { notify, userFacingError } from "@/lib/notify";
 import { explorerUrl } from "@/lib/solana";
 import { formatAddress, formatDateTime, formatInteger, formatRelativeTime } from "@/lib/format";
 import { rawAmountToDecimal } from "@/lib/token";
-import { scheduleStatusTone } from "@/lib/veil";
+import { getScheduleNextExecutionLabel, scheduleStatusTone } from "@/lib/veil";
 
 export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
   const { connected } = useWallet();
@@ -29,6 +30,7 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
   const cancelMutation = useCancelScheduleMutation(schedulePda);
   const registerMutation = useRegisterScheduleMutation(schedulePda);
   const [pendingRegistration, setPendingRegistration] = useState<CoordinatorRegistrationPayload | null>(null);
+  const [selectedAttemptError, setSelectedAttemptError] = useState<{ title: string; message: string } | null>(null);
   const retryAvailable = Boolean(pendingRegistration);
   const coordinatorStatus = coordinatorHealth.data
     ? coordinatorHealth.data.status === "healthy"
@@ -80,10 +82,10 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                     </div>
                   </CardHeader>
                   <CardContent className="grid gap-4 pt-5 md:grid-cols-2">
-                    {scheduleData.status !== "Cancelled" ? (
+                    {scheduleData.status === "Active" ? (
                       <>
                         <DetailItem label="Next execution" value={formatDateTime(scheduleData.nextExecutionMs)} />
-                        <DetailItem label="Relative time" value={formatRelativeTime(scheduleData.nextExecutionMs)} />
+                        <DetailItem label="Relative time" value={getScheduleNextExecutionLabel(scheduleData)} />
                       </>
                     ) : null}
                     <DetailItem
@@ -131,7 +133,11 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                   ) : executionHistory.data?.runs.length ? (
                     <div className="space-y-3">
                       {executionHistory.data.runs.map((run) => (
-                        <ExecutionRunCard key={run.id} run={run} />
+                        <ExecutionRunCard
+                          key={run.id}
+                          onViewAttemptError={(title, message) => setSelectedAttemptError({ title, message })}
+                          run={run}
+                        />
                       ))}
                     </div>
                   ) : (
@@ -173,27 +179,29 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                     </p>
                   ) : null}
 
-                  <Button
-                    className="w-full"
-                    disabled={!retryAvailable || registerMutation.isPending}
-                    onClick={async () => {
-                      if (!pendingRegistration) {
-                        return;
-                      }
+                  {!registration.data && retryAvailable ? (
+                    <Button
+                      className="w-full"
+                      disabled={registerMutation.isPending}
+                      onClick={async () => {
+                        if (!pendingRegistration) {
+                          return;
+                        }
 
-                      try {
-                        await registerMutation.mutateAsync(pendingRegistration);
-                        clearPendingRegistration(schedulePda);
-                        setPendingRegistration(null);
-                        notify("Coordinator registration completed.", "success");
-                      } catch (error) {
-                        notify(userFacingError(error, "Could not register this schedule. Try again."), "error");
-                      }
-                    }}
-                    variant="secondary"
-                  >
-                    {registerMutation.isPending ? "Registering…" : retryAvailable ? "Retry coordinator registration" : "Retry unavailable"}
-                  </Button>
+                        try {
+                          await registerMutation.mutateAsync(pendingRegistration);
+                          clearPendingRegistration(schedulePda);
+                          setPendingRegistration(null);
+                          notify("Coordinator registration completed.", "success");
+                        } catch (error) {
+                          notify(userFacingError(error, "Could not register this schedule. Try again."), "error");
+                        }
+                      }}
+                      variant="secondary"
+                    >
+                      {registerMutation.isPending ? "Registering…" : "Retry coordinator registration"}
+                    </Button>
+                  ) : null}
                 </CardContent>
               </Card>
 
@@ -248,6 +256,13 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
             <CardContent className="pt-5 text-sm text-muted-foreground">Schedule not found.</CardContent>
           </Card>
         )}
+
+        {selectedAttemptError ? (
+          <ErrorDetailsModal
+            error={selectedAttemptError}
+            onClose={() => setSelectedAttemptError(null)}
+          />
+        ) : null}
       </div>
     </AppShell>
   );
@@ -276,7 +291,7 @@ function AddressRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ExecutionRunCard({ run }: { run: CoordinatorExecutionRun }) {
+function ExecutionRunCard({ run, onViewAttemptError }: { run: CoordinatorExecutionRun; onViewAttemptError: (title: string, message: string) => void }) {
   return (
     <div className="space-y-4 rounded-3xl border border-border/70 bg-muted/35 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -310,14 +325,16 @@ function ExecutionRunCard({ run }: { run: CoordinatorExecutionRun }) {
         </div>
       ) : null}
 
-      {run.lastError ? <p className="text-sm text-destructive">{run.lastError}</p> : null}
-
       {run.attempts.length ? (
         <div className="space-y-2 border-t border-border/70 pt-4">
           <p className="text-xs font-medium text-muted-foreground">Attempts</p>
           <div className="space-y-2">
             {run.attempts.map((attempt) => (
-              <ExecutionAttemptRow key={attempt.id} attempt={attempt} />
+              <ExecutionAttemptRow
+                key={attempt.id}
+                attempt={attempt}
+                onViewError={attempt.error ? () => onViewAttemptError(`Attempt ${attempt.attemptNumber} · ${attempt.stage}`, attempt.error ?? "Unknown error") : undefined}
+              />
             ))}
           </div>
         </div>
@@ -326,7 +343,13 @@ function ExecutionRunCard({ run }: { run: CoordinatorExecutionRun }) {
   );
 }
 
-function ExecutionAttemptRow({ attempt }: { attempt: CoordinatorExecutionAttempt }) {
+function ExecutionAttemptRow({
+  attempt,
+  onViewError,
+}: {
+  attempt: CoordinatorExecutionAttempt;
+  onViewError?: () => void;
+}) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/70 px-4 py-3 md:flex-row md:items-center md:justify-between">
       <div className="space-y-1">
@@ -337,9 +360,68 @@ function ExecutionAttemptRow({ attempt }: { attempt: CoordinatorExecutionAttempt
           <Badge tone={attempt.status === "failed" ? "destructive" : "success"}>{attempt.status}</Badge>
         </div>
         <p className="text-xs text-muted-foreground">{formatDateTime(attempt.finishedAt * 1000)}</p>
-        {attempt.error ? <p className="text-xs text-destructive">{attempt.error}</p> : null}
       </div>
-      {attempt.txSignature ? <SignatureRow label="Transaction" value={attempt.txSignature} /> : null}
+      <div className="flex flex-col items-start gap-3 md:items-end">
+        {attempt.txSignature ? <SignatureRow label="Transaction" value={attempt.txSignature} /> : null}
+        {attempt.status === "failed" && onViewError ? (
+          <Button onClick={onViewError} size="sm" type="button" variant="secondary">
+            View error
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ErrorDetailsModal({
+  error,
+  onClose,
+}: {
+  error: { title: string; message: string };
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/75 p-4 backdrop-blur-sm">
+      <div className="panel w-full max-w-2xl rounded-4xl border border-border/80 bg-card p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-lg font-semibold">{error.title}</p>
+            <p className="text-sm text-muted-foreground">Coordinator error details for this failed attempt.</p>
+          </div>
+          <button
+            aria-label="Close error details"
+            className="rounded-full border border-border/70 p-2 text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+            onClick={onClose}
+            type="button"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <Textarea className="min-h-48 resize-none font-mono text-xs leading-6" readOnly value={error.message} />
+          <div className="flex justify-end gap-3">
+            <Button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(error.message);
+                  notify("Error copied to clipboard.", "success");
+                } catch {
+                  notify("Could not copy the error. Try again.", "error");
+                }
+              }}
+              type="button"
+              variant="secondary"
+            >
+              <CopySimple size={16} />
+              Copy error
+            </Button>
+            <Button onClick={onClose} type="button" variant="ghost">
+              Close
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

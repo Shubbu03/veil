@@ -14,10 +14,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCoordinatorHealthQuery, useEmployerSchedulesQuery } from "@/hooks/use-dashboard-data";
-import { formatAddress, formatRelativeTime } from "@/lib/format";
+import { formatAddress } from "@/lib/format";
 import { paginateItems } from "@/lib/pagination";
 import { rawAmountToDecimal } from "@/lib/token";
-import { scheduleStatusTone } from "@/lib/veil";
+import { getScheduleNextExecutionLabel, scheduleStatusTone, sortSchedulesForDisplay } from "@/lib/veil";
 
 export function SchedulesScreen() {
   const LIST_PAGE_SIZE = 5;
@@ -39,25 +39,25 @@ export function SchedulesScreen() {
       ? "offline"
       : "unknown";
 
-  const filteredSchedules = (schedules.data ?? []).filter((schedule) => {
-    const matchesStatus = statusFilter === "all" || schedule.status.toLowerCase() === statusFilter;
-    const matchesSearch =
-      deferredSearch.length === 0 ||
-      schedule.publicKey.toLowerCase().includes(deferredSearch.toLowerCase()) ||
-      schedule.tokenMint?.symbol.toLowerCase().includes(deferredSearch.toLowerCase());
+  const filteredSchedules = sortSchedulesForDisplay(
+    (schedules.data ?? []).filter((schedule) => {
+      const matchesStatus = statusFilter === "all" || schedule.status.toLowerCase() === statusFilter;
+      const matchesSearch =
+        deferredSearch.length === 0 ||
+        schedule.publicKey.toLowerCase().includes(deferredSearch.toLowerCase()) ||
+        schedule.tokenMint?.symbol.toLowerCase().includes(deferredSearch.toLowerCase());
 
-    return matchesStatus && matchesSearch;
-  }).sort((left, right) => right.nextExecutionMs - left.nextExecutionMs);
+      return matchesStatus && matchesSearch;
+    }),
+  );
   const currentView = viewMode === "grid" ? "grid" : "list";
   const pageSize = currentView === "list" ? LIST_PAGE_SIZE : GRID_PAGE_SIZE;
   const pagination = paginateItems(filteredSchedules, page, pageSize);
   const { currentPage, totalPages, pageItems, pageNumbers, hasPreviousPage, hasNextPage } = pagination;
 
   useEffect(() => {
-    if (page !== 1) {
-      void setPage(1);
-    }
-  }, [deferredSearch, page, setPage, statusFilter, viewMode]);
+    void setPage(1);
+  }, [deferredSearch, setPage, statusFilter, viewMode]);
 
   useEffect(() => {
     if (page !== currentPage) {
@@ -194,7 +194,7 @@ function ScheduleListCard({ schedule }: { schedule: NonNullable<ReturnType<typeo
         <Metric label="Per cycle" value={schedule.tokenMint ? `${rawAmountToDecimal(schedule.perExecutionAmountRaw, schedule.tokenMint.decimals)} ${schedule.tokenMint.symbol}` : "—"} />
         <Metric label="Reserved" value={schedule.tokenMint ? `${rawAmountToDecimal(schedule.reservedAmountRaw, schedule.tokenMint.decimals)} ${schedule.tokenMint.symbol}` : "—"} />
         <Metric label="Recipients" value={schedule.totalRecipients.toString()} />
-        <Metric label="Next execution" value={schedule.status === "Cancelled" ? "—" : formatRelativeTime(schedule.nextExecutionMs)} />
+        <Metric label="Next execution" value={getScheduleNextExecutionLabel(schedule)} />
       </CardContent>
     </Card>
   );
@@ -217,7 +217,7 @@ function ScheduleGridCard({ schedule }: { schedule: NonNullable<ReturnType<typeo
           <Metric label="Per cycle" value={schedule.tokenMint ? `${rawAmountToDecimal(schedule.perExecutionAmountRaw, schedule.tokenMint.decimals)} ${schedule.tokenMint.symbol}` : "—"} />
           <Metric label="Reserved" value={schedule.tokenMint ? `${rawAmountToDecimal(schedule.reservedAmountRaw, schedule.tokenMint.decimals)} ${schedule.tokenMint.symbol}` : "—"} />
           <Metric label="Recipients" value={schedule.totalRecipients.toString()} />
-          <Metric label="Next execution" value={schedule.status === "Cancelled" ? "—" : formatRelativeTime(schedule.nextExecutionMs)} />
+          <Metric label="Next execution" value={getScheduleNextExecutionLabel(schedule)} />
         </div>
         <Button asChild className="w-full" variant="secondary">
           <Link href={`/schedules/${schedule.publicKey}`}>Open schedule</Link>

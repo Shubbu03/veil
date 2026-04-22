@@ -14,6 +14,7 @@ import {
   getVaultPda,
 } from "@/lib/sdk";
 import { KNOWN_DEVNET_MINTS, SCHEDULE_EMPLOYER_OFFSET, VAULT_EMPLOYER_OFFSET } from "@/lib/constants";
+import { formatRelativeTime } from "@/lib/format";
 import { bnToBigInt } from "@/lib/token";
 
 export interface MintInfo {
@@ -227,6 +228,26 @@ export function scheduleStatusTone(status: ScheduleStatus) {
     default:
       return "muted";
   }
+}
+
+export function sortSchedulesForDisplay(schedules: UiSchedule[]) {
+  return [...schedules].sort((left, right) => right.nextExecutionMs - left.nextExecutionMs);
+}
+
+export function getScheduleNextExecutionLabel(schedule: Pick<UiSchedule, "status" | "nextExecutionMs">) {
+  if (schedule.status === ScheduleStatus.Cancelled) {
+    return "—";
+  }
+
+  if (schedule.status === ScheduleStatus.Paused) {
+    return "Paused";
+  }
+
+  if (schedule.nextExecutionMs <= Date.now()) {
+    return "Due now";
+  }
+
+  return formatRelativeTime(schedule.nextExecutionMs);
 }
 
 export function isWalletReady(wallet: AnchorWallet | undefined): wallet is AnchorWallet {
