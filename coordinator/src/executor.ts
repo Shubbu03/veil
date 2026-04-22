@@ -227,7 +227,7 @@ async function executeClaimsOnER(
                     proof.leafIndex,
                     proof.proof
                 )
-                .accounts({
+                .accountsStrict({
                     erAuthority: erAuthority.publicKey,
                     config: configPda,
                     vault: vaultPda,
