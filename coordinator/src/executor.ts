@@ -1,12 +1,19 @@
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
 import { AnchorProvider, Program, Wallet, Idl, BN } from "@coral-xyz/anchor";
 import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { config } from "./config";
 import { ScheduleRecipientData } from "./types";
 import {
     getConfigPda,
+    getBufferPda,
+    getDelegationMetadataPda,
+    getDelegationRecordPda,
+    DELEGATION_PROGRAM_ID,
     getVaultPda,
     getVaultAtaPda,
+    MAGIC_CONTEXT_ID,
+    MAGIC_PROGRAM_ID,
+    PROGRAM_ID,
 } from "@veil-dev/sdk";
 import * as fs from "fs";
 import * as path from "path";
@@ -165,12 +172,24 @@ async function delegateSchedule(
         commitment: "confirmed",
     });
     const program = new Program(idl as Idl, provider);
+    const [configPda] = getConfigPda();
+    const [bufferPda] = getBufferPda(schedulePda);
+    const [delegationRecordPda] = getDelegationRecordPda(schedulePda);
+    const [delegationMetadataPda] = getDelegationMetadataPda(schedulePda);
 
     return await program.methods
         .delegateSchedule(scheduleId)
-        .accountsPartial({
+        .accountsStrict({
             payer: erAuthority.publicKey,
+            config: configPda,
             schedule: schedulePda,
+            bufferPda,
+            delegationRecordPda,
+            delegationMetadataPda,
+            pda: schedulePda,
+            systemProgram: SystemProgram.programId,
+            ownerProgram: PROGRAM_ID,
+            delegationProgram: DELEGATION_PROGRAM_ID,
         })
         .signers([erAuthority.payer])
         .rpc();
@@ -292,10 +311,12 @@ async function commitAndUndelegate(
 
     const signature = await program.methods
         .commit()
-        .accountsPartial({
+        .accountsStrict({
             payer: erAuthority.publicKey,
             config: configPda,
             delegatedAccount: schedulePda,
+            magicProgram: MAGIC_PROGRAM_ID,
+            magicContext: MAGIC_CONTEXT_ID,
         })
         .signers([erAuthority.payer])
         .rpc();
