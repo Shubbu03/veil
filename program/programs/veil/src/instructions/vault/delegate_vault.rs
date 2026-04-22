@@ -42,8 +42,7 @@ impl<'info> DelegateVault<'info> {
         
         let employer_key = self.vault.employer;
         let token_mint = self.vault.token_mint;
-        let bump = self.vault.bump;
-        let seeds = &[b"vault", employer_key.as_ref(), token_mint.as_ref(), &[bump]];
+        let seeds = &[b"vault", employer_key.as_ref(), token_mint.as_ref()];
 
         // Delegate the vault PDA to ER using SDK's delegate_pda method
         // delegate_pda(payer, seeds, config)

@@ -45,12 +45,10 @@ impl<'info> UndelegateVault<'info> {
         // Prepare seeds for the vault PDA
         let employer_key = self.vault.employer;
         let token_mint = self.vault.token_mint;
-        let bump = self.vault.bump;
         let seeds = vec![
             b"vault".to_vec(),
             employer_key.as_ref().to_vec(),
             token_mint.as_ref().to_vec(),
-            vec![bump],
         ];
 
         // Undelegate the vault PDA from ER using SDK's CPI function

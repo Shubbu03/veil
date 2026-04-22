@@ -42,6 +42,7 @@ export async function executeSchedule(
 ): Promise<ExecuteScheduleResult> {
     let delegateSignature: string | undefined;
     let commitSignature: string | undefined;
+    const erConnection = new Connection(config.erRpcUrl, "confirmed");
 
     const delegateResult = await runStage(
         "delegate",
@@ -88,7 +89,13 @@ export async function executeSchedule(
         "Delegate stage succeeded"
     );
 
-    const claimSummary = await executeClaimsOnER(erAuthority, schedulePda, scheduleId, recipientData);
+    const claimSummary = await executeClaimsOnER(
+        erConnection,
+        erAuthority,
+        schedulePda,
+        scheduleId,
+        recipientData
+    );
     await onStageCompleted?.({
         stage: "claim",
         status: claimSummary.failedClaims > 0 ? "failed" : "succeeded",
@@ -99,10 +106,11 @@ export async function executeSchedule(
             alreadyPaidCount: claimSummary.alreadyPaidClaims,
             failedClaimCount: claimSummary.failedClaims,
             failedRecipients: claimSummary.failedRecipients,
+            failedClaimErrors: claimSummary.failedClaimErrors,
         },
         error:
             claimSummary.failedClaims > 0
-                ? `failed ${claimSummary.failedClaims} claim(s)`
+                ? formatClaimStageError(claimSummary.failedClaimErrors)
                 : undefined,
     });
 
@@ -110,7 +118,7 @@ export async function executeSchedule(
         "commit",
         onStageCompleted,
         async () => {
-            const signature = await commitAndUndelegate(solanaConnection, erAuthority, schedulePda);
+            const signature = await commitAndUndelegate(erConnection, erAuthority, schedulePda);
             return {
                 txSignature: signature,
                 details: {},
@@ -196,6 +204,7 @@ async function delegateSchedule(
 }
 
 async function executeClaimsOnER(
+    erConnection: Connection,
     erAuthority: Wallet,
     schedulePda: PublicKey,
     scheduleId: number[],
@@ -205,10 +214,10 @@ async function executeClaimsOnER(
     alreadyPaidClaims: number;
     failedClaims: number;
     failedRecipients: string[];
+    failedClaimErrors: Array<{ recipient: string; error: string }>;
     startedAt: number;
     finishedAt: number;
 }> {
-    const erConnection = new Connection(config.erRpcUrl, "confirmed");
     const startedAt = unixTimestamp();
 
     const idlPath = path.resolve(__dirname, "../../sdk/src/idl/idl.json");
@@ -228,6 +237,7 @@ async function executeClaimsOnER(
     let alreadyPaidClaims = 0;
     let failedClaims = 0;
     const failedRecipients: string[] = [];
+    const failedClaimErrors: Array<{ recipient: string; error: string }> = [];
 
     for (let i = 0; i < recipientData.recipients.length; i++) {
         const recipient = recipientData.recipients[i];
@@ -271,6 +281,10 @@ async function executeClaimsOnER(
 
             failedClaims += 1;
             failedRecipients.push(recipientPubkey.toString());
+            failedClaimErrors.push({
+                recipient: recipientPubkey.toString(),
+                error: errorMsg,
+            });
             logger.error(
                 {
                     schedulePda: schedulePda.toString(),
@@ -288,13 +302,14 @@ async function executeClaimsOnER(
         alreadyPaidClaims,
         failedClaims,
         failedRecipients,
+        failedClaimErrors,
         startedAt,
         finishedAt: unixTimestamp(),
     };
 }
 
 async function commitAndUndelegate(
-    solanaConnection: Connection,
+    erConnection: Connection,
     erAuthority: Wallet,
     schedulePda: PublicKey
 ): Promise<string> {
@@ -302,7 +317,7 @@ async function commitAndUndelegate(
     const idlPath = path.resolve(__dirname, "../../sdk/src/idl/idl.json");
     const idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
 
-    const provider = new AnchorProvider(solanaConnection, erAuthority, {
+    const provider = new AnchorProvider(erConnection, erAuthority, {
         commitment: "confirmed",
     });
     const program = new Program(idl as Idl, provider);
@@ -366,6 +381,21 @@ function isAlreadyPaidError(errorMessage: string): boolean {
         errorMessage.includes("AlreadyPaid") ||
         errorMessage.includes("Recipient already paid")
     );
+}
+
+function formatClaimStageError(
+    failures: Array<{ recipient: string; error: string }>
+): string {
+    if (failures.length === 0) {
+        return "Claim stage failed.";
+    }
+
+    return failures
+        .map(
+            ({ recipient, error }, index) =>
+                `Claim ${index + 1} (${recipient}): ${error}`
+        )
+        .join("\n\n");
 }
 
 function unixTimestamp(): number {

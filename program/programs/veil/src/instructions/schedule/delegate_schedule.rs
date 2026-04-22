@@ -48,8 +48,7 @@ impl<'info> DelegateSchedule<'info> {
 
         // Derive seeds for the schedule PDA
         let vault_key = self.schedule.vault;
-        let bump = self.schedule.bump;
-        let seeds = &[b"schedule", vault_key.as_ref(), schedule_id.as_ref(), &[bump]];
+        let seeds = &[b"schedule", vault_key.as_ref(), schedule_id.as_ref()];
 
         let delegate_config = DelegateConfig {
             validator: None,
@@ -65,4 +64,3 @@ impl<'info> DelegateSchedule<'info> {
         Ok(())
     }
 }
-

@@ -17,6 +17,22 @@ function parseAllowedOrigins(value: string | undefined): "*" | string[] {
         .filter(Boolean);
 }
 
+function normalizeErRpcUrl(value: string | undefined): string {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+        return "https://devnet-as.magicblock.app/";
+    }
+
+    if (
+        /^https?:\/\/devnet\.magicblock\.app\/?$/.test(trimmed) ||
+        /^https?:\/\/rpc\.magicblock\.app\/devnet\/?$/.test(trimmed)
+    ) {
+        return "https://devnet-as.magicblock.app/";
+    }
+
+    return trimmed;
+}
+
 function loadKeypair(keypairPath: string): Keypair {
     const resolved = path.resolve(keypairPath);
     if (!fs.existsSync(resolved)) {
@@ -75,8 +91,8 @@ function loadKeypairFromEnv(): Keypair | null {
 export const config = {
     solanaRpcUrl: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
 
-    erRpcUrl: process.env.ER_RPC_URL || "https://devnet.magicblock.app",
-    erValidator: process.env.ER_VALIDATOR || "MUS3hc9TCw4cGC12vHNoYcCGzJG1txjgQLZWVoeNHNd",
+    erRpcUrl: normalizeErRpcUrl(process.env.ER_RPC_URL),
+    erValidator: process.env.ER_VALIDATOR || "MAS1Dt9qreoRMQ14YQuhg8UTZMMzDdKhmkZMECCzk57",
     getErAuthorityKeypair: () => {
         const keypairFromEnv = loadKeypairFromEnv();
         if (keypairFromEnv) {

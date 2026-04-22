@@ -46,12 +46,10 @@ impl<'info> UndelegateSchedule<'info> {
 
         // Prepare seeds for the schedule PDA
         let vault_key = self.schedule.vault;
-        let bump = self.schedule.bump;
         let seeds = vec![
             b"schedule".to_vec(),
             vault_key.as_ref().to_vec(),
             schedule_id.to_vec(),
-            vec![bump],
         ];
 
         undelegate_account(
