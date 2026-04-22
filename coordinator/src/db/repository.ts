@@ -6,7 +6,7 @@ import { PublicKey } from '@solana/web3.js';
 export class ScheduleRepository {
 
     async set(schedulePda: string, data: ScheduleRecipientData): Promise<void> {
-        const now = Math.floor(Date.now() / 1000);
+        const now = Date.now();
 
         const scheduleData: NewSchedule = {
             schedulePda: data.schedulePda,
@@ -107,4 +107,3 @@ export class ScheduleRepository {
 }
 
 export const scheduleRepository = new ScheduleRepository();
-

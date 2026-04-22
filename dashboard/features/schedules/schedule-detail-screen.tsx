@@ -309,7 +309,7 @@ function ExecutionRunCard({ run, onViewAttemptError }: { run: CoordinatorExecuti
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DetailItem label="Attempts" value={`${formatInteger(run.attemptCount)} / ${formatInteger(run.maxAttempts)}`} />
         <DetailItem label="Claimed" value={formatInteger(run.claimedCount)} />
-        <DetailItem label="Already paid" value={formatInteger(run.alreadyPaidCount)} />
+        <DetailItem label="Duplicate skips" value={formatInteger(run.alreadyPaidCount)} />
         <DetailItem label="Failed claims" value={formatInteger(run.failedClaimCount)} />
       </div>
 
