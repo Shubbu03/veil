@@ -44,6 +44,9 @@ pub enum VeilProgramError {
     #[msg("Schedule is not paused")]
     ScheduleNotPaused,
 
+    #[msg("Schedule has an in-progress payout batch")]
+    ScheduleBatchInProgress,
+
     #[msg("Invalid schedule ID")]
     InvalidScheduleId,
 
