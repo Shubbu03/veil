@@ -2,7 +2,14 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAnchorWallet } from "@solana/wallet-adapter-react";
-import { getCoordinatorExecutionHistory, getCoordinatorHealth, getCoordinatorSchedule, registerScheduleWithCoordinator, type CoordinatorRegistrationPayload } from "@/lib/coordinator";
+import {
+  getCoordinatorExecutionHistory,
+  getCoordinatorHealth,
+  getCoordinatorSchedule,
+  getCoordinatorSchedulePayload,
+  registerScheduleWithCoordinator,
+  type CoordinatorRegistrationPayload,
+} from "@/lib/coordinator";
 import { dashboardEnv } from "@/lib/env";
 import { useVeilClient } from "@/hooks/use-veil-client";
 import {
@@ -21,6 +28,7 @@ const queryKeys = {
   config: ["veil", "config"] as const,
   coordinatorHealth: ["coordinator", "health"] as const,
   coordinatorSchedule: (schedulePda: string) => ["coordinator", "schedule", schedulePda] as const,
+  coordinatorSchedulePayload: (schedulePda: string) => ["coordinator", "schedule-payload", schedulePda] as const,
   coordinatorExecutionHistory: (schedulePda: string, limit: number) => ["coordinator", "execution-history", schedulePda, limit] as const,
   vaults: (employer: string | undefined) => ["veil", "vaults", employer] as const,
   vault: (employer: string | undefined, mint: string) => ["veil", "vault", employer, mint] as const,
@@ -59,6 +67,14 @@ export function useCoordinatorScheduleQuery(schedulePda: string) {
   return useQuery({
     queryKey: queryKeys.coordinatorSchedule(schedulePda),
     queryFn: () => getCoordinatorSchedule(schedulePda),
+    enabled: Boolean(dashboardEnv.coordinatorUrl && schedulePda),
+  });
+}
+
+export function useCoordinatorSchedulePayloadQuery(schedulePda: string) {
+  return useQuery({
+    queryKey: queryKeys.coordinatorSchedulePayload(schedulePda),
+    queryFn: () => getCoordinatorSchedulePayload(schedulePda),
     enabled: Boolean(dashboardEnv.coordinatorUrl && schedulePda),
   });
 }
@@ -297,6 +313,43 @@ export function useCancelScheduleMutation(schedulePda: string) {
   });
 }
 
+export function useUpdateScheduleMutation(schedulePda: string) {
+  const client = useVeilClient();
+  const wallet = useAnchorWallet();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      intervalSecs: number;
+      reservedAmountRaw: bigint;
+      recipients: Array<{ address: string; amount: bigint }>;
+    }) => {
+      if (!client || !isWalletReady(wallet)) {
+        throw new Error("Connect a wallet first.");
+      }
+
+      return client.updateScheduleFromRecipients({
+        schedulePda: parsePublicKey(schedulePda),
+        intervalSecs: input.intervalSecs,
+        reservedAmount: toBn(input.reservedAmountRaw),
+        recipients: input.recipients.map((recipient) => ({
+          address: parsePublicKey(recipient.address),
+          amount: recipient.amount,
+        })),
+      });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.schedule(schedulePda) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.schedules(wallet?.publicKey?.toBase58()) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.vaults(wallet?.publicKey?.toBase58()) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.coordinatorSchedule(schedulePda) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.coordinatorSchedulePayload(schedulePda) }),
+      ]);
+    },
+  });
+}
+
 export function useRegisterScheduleMutation(schedulePda: string) {
   const queryClient = useQueryClient();
 
@@ -305,6 +358,7 @@ export function useRegisterScheduleMutation(schedulePda: string) {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.coordinatorSchedule(schedulePda) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.coordinatorSchedulePayload(schedulePda) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.coordinatorHealth }),
       ]);
     },

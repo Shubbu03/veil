@@ -228,6 +228,17 @@ export function ScheduleDetailScreen({ schedulePda }: { schedulePda: string }) {
                       >
                         {scheduleData.status === "Paused" ? "Resume schedule" : "Pause schedule"}
                       </Button>
+                      {scheduleData.status === "Paused" ? (
+                        registration.data ? (
+                          <Button asChild className="w-full" variant="secondary">
+                            <Link href={`/schedules/${schedulePda}/edit`}>Edit schedule</Link>
+                          </Button>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Editing needs the coordinator recipient payload, which is not available for this schedule.
+                          </p>
+                        )
+                      ) : null}
                       <Button
                         className="w-full"
                         disabled={cancelMutation.isPending}
