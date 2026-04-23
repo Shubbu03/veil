@@ -84,6 +84,35 @@ Pause or resume a schedule.
 - `schedule_id` - Schedule identifier ([u8; 32])
 - `paused` - Pause flag (bool)
 
+### update_schedule
+
+Update a paused schedule.
+
+This instruction replaces the schedule cadence, reserve amount, per-execution
+amount, Merkle root, and recipient count. It is intentionally paused-only so an
+active payout cycle cannot change underneath the coordinator.
+
+**Accounts:**
+- `employer` - Signer, vault owner
+- `config` - Global config PDA
+- `vault` - Vault PDA
+- `schedule` - Schedule PDA
+
+**Parameters:**
+- `interval_secs` - Seconds between executions (u64)
+- `reserved_amount` - New total reserved amount (u64)
+- `per_execution_amount` - New amount paid per execution cycle (u64)
+- `merkle_root` - New Merkle root ([u8; 32])
+- `total_recipients` - New number of recipients (u16)
+
+**Rules:**
+- The schedule must be `Paused`
+- No payout batch can be in progress
+- `per_execution_amount` must be greater than zero and cannot exceed `reserved_amount`
+- Increasing `reserved_amount` pulls from vault available balance
+- Decreasing `reserved_amount` releases funds back to vault available balance
+- `next_execution` is reset to the current timestamp plus `interval_secs`
+
 ### cancel_schedule
 
 Cancel a schedule and return reserved funds.

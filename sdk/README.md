@@ -5,7 +5,7 @@ TypeScript/JavaScript SDK for interacting with the **Veil** protocol on Solana, 
 
 - Building and verifying Merkle trees for recipient lists
 - Deriving PDAs used by the Veil program
-- High-level client utilities for working with schedules and vaults
+- High-level client utilities for working with vaults, schedules, and paused schedule edits
 
 > For full protocol, coordinator, and advanced SDK docs, see the main Veil documentation site referenced in the root `README.md` of this repo.
 
@@ -25,6 +25,27 @@ const { root, proofs } = buildMerkleTree(recipients);
 console.log("Merkle root:", root.toString("hex"));
 ```
 
+Paused schedule edits
+---------------------
+
+Schedules can be edited without cancelling them, but they must be paused first.
+`updateScheduleFromRecipients` rebuilds the Merkle root from the replacement
+recipient list and derives the per-cycle amount from the recipient total.
+
+```ts
+await client.pauseSchedule(schedulePda, true);
+
+await client.updateScheduleFromRecipients({
+  schedulePda,
+  recipients,
+  intervalSecs: 86_400,
+  reservedAmount,
+});
+
+// Re-register the updated recipient payload with the coordinator, then resume.
+await client.pauseSchedule(schedulePda, false);
+```
+
 Repository & docs
 -----------------
 
@@ -33,4 +54,3 @@ Repository & docs
   - Full API reference
   - End-to-end examples
   - Coordinator integration guides
-

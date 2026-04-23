@@ -17,6 +17,16 @@ export interface CoordinatorRegistrationStatus {
   createdAt: number;
 }
 
+export interface CoordinatorSchedulePayload {
+  schedulePda: string;
+  scheduleId: number[];
+  vaultEmployer: string;
+  tokenMint: string;
+  recipients: Array<{ address: string; amount: string }>;
+  merkleRoot: number[];
+  createdAt: number;
+}
+
 export interface CoordinatorExecutionAttempt {
   id: number;
   runId: number;
@@ -85,6 +95,23 @@ export async function getCoordinatorSchedule(schedulePda: string) {
 
   try {
     const response = await coordinatorApi.get<CoordinatorRegistrationStatus>(`/schedules/${schedulePda}`);
+    return response.data;
+  } catch (error: unknown) {
+    if (isNotFoundError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+export async function getCoordinatorSchedulePayload(schedulePda: string) {
+  if (!coordinatorApi) {
+    return null;
+  }
+
+  try {
+    const response = await coordinatorApi.get<CoordinatorSchedulePayload>(`/schedules/${schedulePda}/payload`);
     return response.data;
   } catch (error: unknown) {
     if (isNotFoundError(error)) {

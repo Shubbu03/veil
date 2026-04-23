@@ -63,6 +63,7 @@ const recipients = [
 ```typescript
 const { signature, scheduleId, merkleRoot } =
   await client.createScheduleFromRecipients({
+    tokenMint: USDC_MINT,
     recipients,
     intervalSecs: 86400, // Daily (24 hours)
     reservedAmount: new BN(5_000_000), // Reserve 5 USDC total
@@ -80,7 +81,11 @@ console.log("Merkle Root:", merkleRoot);
 Register your schedule for automatic execution:
 
 ```typescript
+import { getVaultPda, getSchedulePda } from "@veil-dev/sdk";
+
 const COORDINATOR_URL = "{COORDINATOR_URL}"; // e.g. http://localhost:3001/api
+const [vaultPda] = getVaultPda(wallet.publicKey, USDC_MINT);
+const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
 
 const response = await fetch(`${COORDINATOR_URL}/schedules`, {
   method: "POST",
@@ -99,6 +104,44 @@ const response = await fetch(`${COORDINATOR_URL}/schedules`, {
 
 const data = await response.json();
 console.log("Registered:", data);
+```
+
+## Step 7: Edit a Schedule
+
+Schedules can be edited after pausing. After an edit, re-register the updated
+recipient payload with the coordinator, then resume the schedule.
+
+```typescript
+await client.pauseSchedule(schedulePda, true);
+
+const updatedRecipients = [
+  { address: new PublicKey("Recipient1Address..."), amount: 150_000n },
+  { address: new PublicKey("Recipient2Address..."), amount: 250_000n },
+];
+
+await client.updateScheduleFromRecipients({
+  schedulePda,
+  recipients: updatedRecipients,
+  intervalSecs: 86400,
+  reservedAmount: new BN(5_000_000),
+});
+
+await fetch(`${COORDINATOR_URL}/schedules`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    schedulePda: schedulePda.toString(),
+    scheduleId: Array.from(scheduleId),
+    vaultEmployer: wallet.publicKey.toString(),
+    tokenMint: USDC_MINT.toString(),
+    recipients: updatedRecipients.map((r) => ({
+      address: r.address.toString(),
+      amount: r.amount.toString(),
+    })),
+  }),
+});
+
+await client.pauseSchedule(schedulePda, false);
 ```
 
 ## Complete Example
@@ -129,6 +172,7 @@ async function createFirstSchedule() {
   ];
 
   const { scheduleId } = await client.createScheduleFromRecipients({
+    tokenMint: USDC,
     recipients,
     intervalSecs: 86400,
     reservedAmount: new BN(5_000_000),
@@ -136,7 +180,7 @@ async function createFirstSchedule() {
   });
 
   // 4. Get schedule PDA
-  const [vaultPda] = getVaultPda(wallet.publicKey);
+  const [vaultPda] = getVaultPda(wallet.publicKey, USDC);
   const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
 
   // 5. Check status

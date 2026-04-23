@@ -39,6 +39,7 @@ export interface UiSchedule {
   vault: string;
   tokenMint: MintInfo | null;
   status: ScheduleStatus;
+  intervalSecs: number;
   nextExecutionMs: number;
   reservedAmountRaw: bigint;
   perExecutionAmountRaw: bigint;
@@ -191,6 +192,7 @@ function toUiSchedule(publicKey: PublicKey, account: ScheduleAccount, mintInfo: 
     vault: account.vault.toBase58(),
     tokenMint: mintInfo,
     status: parseScheduleStatus(account.status as RawScheduleStatus),
+    intervalSecs: Number(account.intervalSecs.toString()),
     nextExecutionMs: Number(account.nextExecution.toString()) * 1000,
     reservedAmountRaw: bnToBigInt(account.reservedAmount),
     perExecutionAmountRaw: bnToBigInt(account.perExecutionAmount),

@@ -15,11 +15,13 @@ import {
     VeilConfig,
     ScheduleStatus,
     CreateScheduleParams,
+    UpdateScheduleParams,
 } from "./types";
 import IDL from "./idl/idl.json";
 import {
     assertRecipientsMatchPerExecutionAmount,
     assertValidCreateScheduleParams,
+    assertValidUpdateScheduleParams,
 } from "./validation";
 
 export interface VeilClientConfig {
@@ -171,6 +173,68 @@ export class VeilClient {
         }
 
         return { signature, scheduleId, merkleRoot: Array.from(root) };
+    }
+
+    async updateSchedule(
+        schedulePda: PublicKey,
+        params: UpdateScheduleParams
+    ): Promise<string> {
+        assertValidUpdateScheduleParams(params);
+        const schedule = await this.getSchedule(schedulePda);
+        if (!schedule) {
+            throw new Error("schedule not found");
+        }
+
+        try {
+            return await this.program.methods
+                .updateSchedule(
+                    new BN(params.intervalSecs),
+                    params.reservedAmount,
+                    params.perExecutionAmount,
+                    params.merkleRoot,
+                    params.totalRecipients
+                )
+                .accountsPartial({
+                    employer: this.wallet.publicKey,
+                    vault: schedule.vault,
+                    schedule: schedulePda,
+                })
+                .rpc();
+        } catch (error) {
+            if (error instanceof Error && error.message.includes("already been processed")) {
+                const existingSchedule = await this.waitForSchedule(schedulePda);
+
+                if (existingSchedule) {
+                    return "";
+                }
+            }
+
+            throw error;
+        }
+    }
+
+    async updateScheduleFromRecipients(opts: {
+        schedulePda: PublicKey;
+        recipients: Recipient[];
+        intervalSecs: number;
+        reservedAmount: BN;
+    }): Promise<{ signature: string; merkleRoot: number[] }> {
+        const { root } = buildMerkleTree(opts.recipients);
+        const perExecutionAmount = sumRecipientAmounts(opts.recipients);
+        assertRecipientsMatchPerExecutionAmount(opts.recipients, perExecutionAmount);
+
+        const signature = await this.updateSchedule(opts.schedulePda, {
+            intervalSecs: opts.intervalSecs,
+            reservedAmount: opts.reservedAmount,
+            perExecutionAmount,
+            merkleRoot: Array.from(root),
+            totalRecipients: opts.recipients.length,
+        });
+
+        return {
+            signature,
+            merkleRoot: Array.from(root),
+        };
     }
 
     private async waitForSchedule(schedulePda: PublicKey) {
@@ -353,6 +417,16 @@ export class VeilClient {
 
 export function generateScheduleId(): number[] {
     return Array.from(crypto.getRandomValues(new Uint8Array(32)));
+}
+
+function sumRecipientAmounts(recipients: Recipient[]): BN {
+    let total = 0n;
+
+    for (const recipient of recipients) {
+        total += recipient.amount;
+    }
+
+    return new BN(total.toString());
 }
 
 async function sleep(ms: number) {
