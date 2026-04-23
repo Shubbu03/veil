@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { BN } from "@coral-xyz/anchor";
 import { useAnchorWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
-import { ArrowLeft, CaretDown, Info, Trash, UploadSimple } from "phosphor-react";
+import { ArrowLeft, BookmarkSimple, CaretDown, FloppyDisk, Info, Trash, UploadSimple, X } from "phosphor-react";
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/empty-state";
 import { SectionHeader } from "@/components/section-header";
@@ -23,7 +23,14 @@ import { notify, userFacingError } from "@/lib/notify";
 import { paginateItems } from "@/lib/pagination";
 import { storePendingRegistration } from "@/lib/pending-registrations";
 import { parseRecipientCsvFile, parseRecipientExcelFile } from "@/lib/recipient-import";
+import {
+  deleteScheduleTemplate,
+  listScheduleTemplates,
+  saveScheduleTemplate,
+  type ScheduleTemplate,
+} from "@/lib/schedule-templates";
 import { decimalToRawAmount, rawAmountToDecimal } from "@/lib/token";
+import { formatAddress } from "@/lib/format";
 import { deriveSchedulePdaFromMint } from "@/lib/veil";
 import { useVeilClient } from "@/hooks/use-veil-client";
 
@@ -66,6 +73,10 @@ export function ScheduleBuilderScreen() {
   const config = useConfigQuery();
   const coordinatorHealth = useCoordinatorHealthQuery();
   const registerMutation = useRegisterScheduleMutation("pending");
+  const walletAddress = wallet?.publicKey.toBase58();
+  const [templates, setTemplates] = useState<ScheduleTemplate[]>([]);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
   const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
   const [uploadType, setUploadType] = useState<"csv" | "excel" | null>(null);
   const [recipientPage, setRecipientPage] = useState(1);
@@ -119,6 +130,10 @@ export function ScheduleBuilderScreen() {
     recipientPage,
     10,
   );
+
+  useEffect(() => {
+    setTemplates(walletAddress ? listScheduleTemplates(walletAddress) : []);
+  }, [walletAddress]);
 
   useEffect(() => {
     if (!uploadMenuOpen) {
@@ -241,6 +256,81 @@ export function ScheduleBuilderScreen() {
     }
   }
 
+  function handleSaveTemplate() {
+    if (!walletAddress) {
+      notify("Connect a wallet before saving templates.", "error");
+      return;
+    }
+
+    if (!templateName.trim()) {
+      notify("Name this template first.", "error");
+      return;
+    }
+
+    const result = formSchema.safeParse(form.getValues());
+    if (!result.success) {
+      notify("Complete the schedule details before saving a template.", "error");
+      return;
+    }
+
+    try {
+      const template = saveScheduleTemplate({
+        wallet: walletAddress,
+        name: templateName,
+        tokenMint: result.data.vaultMint,
+        intervalValue: result.data.intervalValue,
+        intervalUnit: result.data.intervalUnit,
+        reservedAmount: result.data.reservedAmount,
+        recipients: result.data.recipients,
+      });
+
+      setTemplates(listScheduleTemplates(walletAddress));
+      setTemplateName("");
+      notify(`Template saved: ${template.name}`, "success");
+    } catch (error) {
+      notify(userFacingError(error, "Could not save this template."), "error");
+    }
+  }
+
+  function handleApplyTemplate(template: ScheduleTemplate) {
+    if (template.recipients.length > maxRecipients) {
+      notify(`This template has more than ${maxRecipients} recipients.`, "error");
+      return;
+    }
+
+    const hasVaultForTemplate = Boolean(vaults.data?.some((vault) => vault.tokenMint.address === template.tokenMint));
+    form.reset({
+      vaultMint: hasVaultForTemplate ? template.tokenMint : "",
+      intervalValue: template.intervalValue,
+      intervalUnit: template.intervalUnit,
+      reservedAmount: template.reservedAmount,
+      autoRegister: form.getValues("autoRegister"),
+      recipients: template.recipients,
+    });
+    setRecipientPage(1);
+    setTemplatePickerOpen(false);
+
+    notify(
+      hasVaultForTemplate ? `Template applied: ${template.name}` : "Template applied. Create a vault for this mint first.",
+      hasVaultForTemplate ? "success" : "warn",
+    );
+  }
+
+  function handleDeleteTemplate(templateId: string) {
+    if (!walletAddress) {
+      return;
+    }
+
+    deleteScheduleTemplate(walletAddress, templateId);
+    setTemplates(listScheduleTemplates(walletAddress));
+    notify("Template deleted.", "success");
+  }
+
+  function getTemplateMintLabel(tokenMint: string) {
+    const vault = vaults.data?.find((item) => item.tokenMint.address === tokenMint);
+    return vault?.tokenMint.symbol ?? formatAddress(tokenMint, 5);
+  }
+
   return (
     <AppShell coordinatorStatus={coordinatorStatus}>
       <div className="space-y-6">
@@ -249,12 +339,23 @@ export function ScheduleBuilderScreen() {
           title="Compose a payout schedule"
           description="Choose a vault, set the cadence, and define recipients. Per-cycle amount is derived from the rows below."
           action={
-            <Button asChild variant="ghost">
-              <Link href="/schedules">
-                <ArrowLeft size={16} weight="bold" />
-                Back to schedules
-              </Link>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                disabled={!wallet}
+                onClick={() => setTemplatePickerOpen(true)}
+                type="button"
+                variant="secondary"
+              >
+                <BookmarkSimple size={16} weight="bold" />
+                Use template
+              </Button>
+              <Button asChild variant="ghost">
+                <Link href="/schedules">
+                  <ArrowLeft size={16} weight="bold" />
+                  Back to schedules
+                </Link>
+              </Button>
+            </div>
           }
         />
 
@@ -538,6 +639,29 @@ export function ScheduleBuilderScreen() {
                   Auto-register with coordinator after creation
                 </label>
 
+                <div className="space-y-3 rounded-3xl border border-border/70 bg-muted/35 p-4">
+                  <div>
+                    <p className="text-sm font-semibold">Save as template</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Store this draft for this wallet and reuse it later.
+                    </p>
+                  </div>
+                  <Input
+                    onChange={(event) => setTemplateName(event.target.value)}
+                    placeholder="Template name"
+                    value={templateName}
+                  />
+                  <Button
+                    className="w-full"
+                    onClick={handleSaveTemplate}
+                    type="button"
+                    variant="secondary"
+                  >
+                    <FloppyDisk size={16} weight="bold" />
+                    Save template
+                  </Button>
+                </div>
+
                 <Button className="w-full" disabled={form.formState.isSubmitting || reservedAmountTooHigh || reservedAmountTooLow} type="submit">
                   {form.formState.isSubmitting ? "Creating schedule…" : "Create schedule"}
                 </Button>
@@ -549,6 +673,16 @@ export function ScheduleBuilderScreen() {
             </Card>
           </form>
         )}
+
+        {templatePickerOpen ? (
+          <TemplatePickerDialog
+            getMintLabel={getTemplateMintLabel}
+            onApply={handleApplyTemplate}
+            onClose={() => setTemplatePickerOpen(false)}
+            onDelete={handleDeleteTemplate}
+            templates={templates}
+          />
+        ) : null}
       </div>
     </AppShell>
   );
@@ -576,5 +710,93 @@ function HelpHint({ text }: { text: string }) {
         {text}
       </span>
     </span>
+  );
+}
+
+function TemplatePickerDialog({
+  templates,
+  getMintLabel,
+  onApply,
+  onClose,
+  onDelete,
+}: {
+  templates: ScheduleTemplate[];
+  getMintLabel: (tokenMint: string) => string;
+  onApply: (template: ScheduleTemplate) => void;
+  onClose: () => void;
+  onDelete: (templateId: string) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-xl">
+      <div className="panel max-h-[min(760px,90vh)] w-full max-w-3xl overflow-hidden">
+        <div className="flex items-start justify-between gap-4 border-b border-border/70 p-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Templates
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Create from a saved schedule</h2>
+          </div>
+          <Button onClick={onClose} size="sm" type="button" variant="ghost">
+            <X size={16} weight="bold" />
+          </Button>
+        </div>
+
+        <div className="max-h-[calc(min(760px,90vh)-120px)] overflow-y-auto p-5">
+          {!templates.length ? (
+            <div className="rounded-3xl border border-border/70 bg-muted/35 p-6">
+              <p className="text-base font-semibold">No templates yet</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Fill the schedule form once, save it as a template, and it will show up here for this wallet.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {templates.map((template) => (
+                <div
+                  className="grid gap-4 rounded-3xl border border-border/70 bg-muted/35 p-4 transition hover:border-accent/45 hover:bg-muted/50 lg:grid-cols-[minmax(0,1fr)_auto]"
+                  key={template.id}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-base font-semibold">{template.name}</p>
+                      <Badge tone="accent">{getMintLabel(template.tokenMint)}</Badge>
+                    </div>
+                    <div className="mt-3 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+                      <TemplateMeta label="Recipients" value={String(template.recipients.length)} />
+                      <TemplateMeta label="Cadence" value={`Every ${template.intervalValue} ${template.intervalUnit}`} />
+                      <TemplateMeta label="Reserve" value={template.reservedAmount} />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 lg:justify-end">
+                    <Button onClick={() => onApply(template)} size="sm" type="button">
+                      Apply
+                    </Button>
+                    <Button
+                      className="hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => onDelete(template.id)}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trash size={15} weight="bold" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TemplateMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate font-semibold text-foreground">{value}</p>
+    </div>
   );
 }
