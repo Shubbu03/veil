@@ -38,6 +38,8 @@ client.program     // Anchor Program instance
 ### Schedule Operations
 - `createSchedule(params)` - Create schedule (advanced)
 - `createScheduleFromRecipients(params)` - Create schedule (simple)
+- `updateSchedule(schedulePda: PublicKey, params)` - Update a paused schedule (advanced)
+- `updateScheduleFromRecipients(params)` - Update a paused schedule and rebuild its Merkle root from recipients
 - `pauseSchedule(schedulePda: PublicKey, paused: boolean)` - Pause/resume
 - `cancelSchedule(schedulePda: PublicKey)` - Cancel schedule
 - `getSchedule(schedulePda: PublicKey)` - Get schedule state

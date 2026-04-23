@@ -63,6 +63,7 @@ interface Recipient {
 
 ```typescript
 interface CreateScheduleParams {
+  tokenMint: PublicKey;
   scheduleId: number[];
   intervalSecs: number;
   reservedAmount: BN;
@@ -70,6 +71,18 @@ interface CreateScheduleParams {
   merkleRoot: number[];
   totalRecipients: number;
   erJobId: number[];
+}
+```
+
+### UpdateScheduleParams
+
+```typescript
+interface UpdateScheduleParams {
+  intervalSecs: number;
+  reservedAmount: BN;
+  perExecutionAmount: BN;
+  merkleRoot: number[];
+  totalRecipients: number;
 }
 ```
 
@@ -145,6 +158,7 @@ import {
   ScheduleStatus,
   Recipient,
   CreateScheduleParams,
+  UpdateScheduleParams,
   VeilConfig,
 } from "@veil-dev/sdk";
 ```
