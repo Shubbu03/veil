@@ -7,37 +7,43 @@ Understanding the key concepts in Veil.
 A **vault** is a token account that holds funds for payment schedules. Each employer wallet can have one vault per token mint.
 
 **Properties:**
-- Holds tokens (USDC, SOL, etc.)
-- Tracks available vs reserved balance
-- Owned by employer wallet
+
+- holds a single SPL token mint
+- must use a mint allowed by the protocol whitelist when whitelist mode is enabled
+- tracks `available` vs `reserved` balance
+- is controlled by the employer wallet through the program
 
 **Lifecycle:**
-1. Create vault with `initVault()`
-2. Deposit tokens with `deposit()`
-3. Funds reserved when schedules created
-4. Withdraw available balance with `withdraw()`
+
+1. create vault with `initVault()`
+2. deposit tokens with `deposit()`
+3. reserve funds when schedules are created
+4. withdraw available balance with `withdraw()`
 
 ## Schedules
 
-A **schedule** defines a recurring payment plan with hidden recipients.
+A **schedule** defines a recurring payout plan with hidden recipients.
 
-**Key Fields:**
-- `scheduleId` - Unique identifier (32 bytes)
-- `intervalSecs` - Time between executions
-- `reservedAmount` - Total funds reserved
-- `perExecutionAmount` - Amount paid per cycle
-- `merkleRoot` - Root of recipient Merkle tree
-- `totalRecipients` - Number of recipients
-- `nextExecution` - Unix timestamp of next execution
+**Key fields:**
 
-**Status:**
-- `Active` - Currently executing
-- `Paused` - Temporarily stopped
-- `Cancelled` - Terminated, funds returned
+- `intervalSecs` - time between executions
+- `reservedAmount` - total funds reserved
+- `perExecutionAmount` - amount paid per cycle
+- `merkleRoot` - root of the recipient Merkle tree
+- `totalRecipients` - number of recipients
+- `nextExecution` - unix timestamp of the next run
+
+`scheduleId` is used to derive the schedule PDA, but it is not stored as a field inside the on-chain `ScheduleAccount`.
+
+**Status values:**
+
+- `Active`
+- `Paused`
+- `Cancelled`
 
 ## Merkle Trees
 
-**Merkle trees** hide recipient lists while allowing on-chain verification.
+Merkle trees let Veil verify membership without storing the full recipient list on-chain.
 
 ### Structure
 
@@ -49,13 +55,13 @@ A **schedule** defines a recurring payment plan with hidden recipients.
   Leaf0  Leaf1  Leaf2    Leaf3
 ```
 
-Each leaf = `hash(recipient_address || amount)`
+Each leaf is `hash(recipient_address || amount)`.
 
 ### Why Merkle Trees?
 
-- **Privacy** - Only root stored on-chain (32 bytes)
-- **Verification** - Proofs verify membership without revealing list
-- **Efficiency** - O(log n) proof size
+- **privacy** - only the root is committed on-chain
+- **verification** - proofs confirm membership without revealing the full set
+- **efficiency** - proof size grows logarithmically with recipient count
 
 ### Building a Tree
 
@@ -68,61 +74,66 @@ const recipients = [
 ];
 
 const { root, proofs } = buildMerkleTree(recipients);
-// root: Buffer (32 bytes) - store on-chain
-// proofs: array of proofs for each recipient
 ```
 
 ## Batch Execution
 
 Payments execute in **batches**:
 
-1. **Batch Start** - First claim sets `batch_start_time`
-2. **Claims** - Recipients claim with Merkle proofs
-3. **Completion** - When all claim OR timeout reached
-4. **Settlement** - Reserved amount decremented, next execution set
+1. **batch start** - first successful claim sets `batchStartTime`
+2. **claims** - recipients are processed with Merkle proofs
+3. **completion** - all recipients are paid or timeout is reached
+4. **settlement** - reserved amount is decremented and the next run is scheduled
 
-**Timeout:** Configurable (default: 7 days)
+The global batch timeout is configurable in `VeilConfig` and defaults to 7 days in the SDK helper.
 
-## Ephemeral Rollups (ER)
+## Ephemeral Rollups
 
-**MagicBlock ER** provides private execution:
+MagicBlock ER provides:
 
-- **TEE** - Trusted Execution Environment
-- **Privacy** - Recipient list never exposed
-- **Batch Processing** - Multiple claims in one transaction
-
-**Flow:**
-1. Coordinator delegates schedule to ER
-2. ER executes `claim_payment` (private)
-3. ER commits state back to Solana
-4. Coordinator undelegates
+- TEE execution
+- private claim flow
+- state handoff back to Solana through commit
 
 ## Coordinator
 
-The **coordinator** automates execution:
+The **coordinator** automates execution and stores off-chain payout metadata:
 
-- Monitors schedules for execution time
-- Delegates to ER
-- Executes claims
-- Commits final state
+- monitors schedules for execution time
+- validates and stores recipient payloads
+- delegates to ER
+- executes claims
+- commits final state
+- records execution history
 
 **Requirements:**
-- PostgreSQL database
+
+- PostgreSQL
+- Redis (recommended for distributed rate limiting)
 - ER authority keypair
 - Solana RPC connection
 
 ## Reserved vs Available
 
-**Available** - Funds that can be withdrawn or used for new schedules
+**Available** - funds that can be withdrawn or used for new schedules
 
-**Reserved** - Funds locked for active schedules
+**Reserved** - funds locked for active schedules
 
-```
+```text
 Total Balance = Available + Reserved
 ```
 
-When creating a schedule, funds move from `available` → `reserved`. When schedule completes or cancels, funds return to `available`.
+When a schedule is created, funds move from `available` to `reserved`. When a schedule completes or is cancelled, funds are released back to `available`.
+
+## Dashboard Conveniences
+
+The published employer dashboard adds workflow features on top of the protocol and SDK:
+
+- CSV / Excel recipient imports
+- local saved schedule templates per wallet
+- coordinator execution-history views
+- pause / resume / cancel controls
 
 ## Next Steps
 
-- [SDK Reference](/sdk/installation) - API documentation
+- [SDK Reference](/sdk/installation)

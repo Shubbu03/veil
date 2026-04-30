@@ -4,10 +4,10 @@ Get Veil up and running in 5 minutes.
 
 ## Prerequisites
 
-- Node.js 18+ and yarn/npm
+- Node.js 18+ and yarn / npm / pnpm / bun
 - Solana CLI installed
 - Wallet with SOL for transaction fees
-- Basic understanding of Solana and TypeScript
+- Basic familiarity with Solana and TypeScript
 
 ## Installation
 
@@ -41,42 +41,30 @@ bun add @veil-dev/sdk
 ## Setup
 
 ```typescript
-import { Connection, Keypair } from "@solana/web3.js";
-import { Wallet } from "@coral-xyz/anchor";
-import { VeilClient } from "@veil-dev/sdk";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { Wallet, BN } from "@coral-xyz/anchor";
+import { VeilClient, getSchedulePda, getVaultPda } from "@veil-dev/sdk";
 
-// Connect to Solana (devnet for testing)
 const connection = new Connection("https://api.devnet.solana.com");
-
-// Your wallet (employer)
 const keypair = Keypair.fromSecretKey(/* your secret key */);
 const wallet = new Wallet(keypair);
-
-// Create Veil client
 const client = new VeilClient({ connection, wallet });
+
+const USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 ```
 
 ## Step 1: Create a Vault
 
-A vault holds tokens for your payment schedules. Each wallet can have one vault per token mint.
+A vault holds tokens for your payment schedules. Each employer can create one vault per token mint.
 
 ```typescript
-import { PublicKey } from "@solana/web3.js";
-
-const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-
-// Create vault
 const signature = await client.initVault(USDC_MINT);
 console.log("Vault created:", signature);
 ```
 
 ## Step 2: Deposit Tokens
 
-Deposit tokens into your vault:
-
 ```typescript
-import { BN } from "@coral-xyz/anchor";
-
 const amount = new BN(1_000_000); // 1 USDC (6 decimals)
 
 const signature = await client.deposit(amount, USDC_MINT);
@@ -85,7 +73,7 @@ console.log("Deposited:", signature);
 
 ## Step 3: Create a Payment Schedule
 
-Create a schedule with multiple recipients. The recipient list is hidden using a Merkle tree:
+Individual recipient addresses and per-recipient amounts are not stored on-chain. Veil stores the Merkle root plus the schedule totals and timing metadata.
 
 ```typescript
 const recipients = [
@@ -96,6 +84,7 @@ const recipients = [
 
 const { signature, scheduleId, merkleRoot } =
   await client.createScheduleFromRecipients({
+    tokenMint: USDC_MINT,
     recipients,
     intervalSecs: 86400, // Daily (24 hours)
     reservedAmount: new BN(10_000_000), // Total reserved: 10 USDC
@@ -104,15 +93,18 @@ const { signature, scheduleId, merkleRoot } =
 
 console.log("Schedule created:", signature);
 console.log("Schedule ID:", scheduleId);
+console.log("Merkle Root:", merkleRoot);
+
+const [vaultPda] = getVaultPda(wallet.publicKey, USDC_MINT);
+const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
 ```
 
-## Step 4: Register with Coordinator
+## Step 4: Register with the Coordinator
 
-Register your schedule with the coordinator service for automatic execution:
+Register the schedule with a coordinator so it can store recipient proofs and drive automated execution.
 
 ```typescript
-// Register schedule (requires coordinator running)
-const response = await fetch("your-coordinator-url/api/schedules", {
+const response = await fetch("https://your-coordinator-domain.com/api/schedules", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
@@ -120,13 +112,28 @@ const response = await fetch("your-coordinator-url/api/schedules", {
     scheduleId: Array.from(scheduleId),
     vaultEmployer: wallet.publicKey.toString(),
     tokenMint: USDC_MINT.toString(),
-    recipients: recipients.map((r) => ({
-      address: r.address.toString(),
-      amount: r.amount.toString(),
+    recipients: recipients.map((recipient) => ({
+      address: recipient.address.toString(),
+      amount: recipient.amount.toString(),
     })),
   }),
 });
+
+const data = await response.json();
+console.log(data);
 ```
+
+If you retry the exact same registration payload, the coordinator responds successfully with `alreadyRegistered: true`.
+
+## Dashboard Alternative
+
+The employer dashboard supports the same core flow without wiring the SDK first:
+
+- create vaults by allowed mint
+- deposit and withdraw balances
+- import recipients from CSV or Excel
+- save local schedule templates per wallet
+- inspect coordinator execution history
 
 ## What's Next?
 

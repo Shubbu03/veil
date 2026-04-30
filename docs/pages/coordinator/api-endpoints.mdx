@@ -1,5 +1,3 @@
-import { Callout } from 'nextra/components'
-
 # API Endpoints
 
 Coordinator REST API reference.
@@ -9,18 +7,14 @@ Coordinator REST API reference.
 Replace `{COORDINATOR_URL}` with your coordinator service URL.
 
 **Local Development:**
-```
+```bash
 http://localhost:3001/api
 ```
 
 **Production:**
-```
+```bash
 https://your-coordinator-domain.com/api
 ```
-
-{/* <Callout type="info">
-The coordinator is a self-hosted service. You need to deploy it yourself or use a hosted coordinator service. See [Setup Guide](/coordinator/setup) for deployment instructions.
-</Callout> */}
 
 ## Register Schedule
 
@@ -33,9 +27,9 @@ Register a schedule with recipient data for execution.
 ```json
 {
   "schedulePda": "schedule_pubkey_here",
-  "scheduleId": [1, 2, 3, ...],
+  "scheduleId": [1, 2, 3, "..."],
   "vaultEmployer": "employer_pubkey_here",
-  "tokenMint": "USDC_mint_address",
+  "tokenMint": "mint_pubkey_here",
   "recipients": [
     { "address": "recipient1_pubkey", "amount": "100000" },
     { "address": "recipient2_pubkey", "amount": "200000" }
@@ -43,15 +37,33 @@ Register a schedule with recipient data for execution.
 }
 ```
 
-**Response:**
+**Success response:**
 
 ```json
 {
   "success": true,
   "schedulePda": "schedule_pubkey_here",
-  "merkleRoot": [1, 2, 3, ...]
+  "merkleRoot": [1, 2, 3, "..."],
+  "alreadyRegistered": false
 }
 ```
+
+If the exact same payload is submitted again for an already-registered schedule, the coordinator returns a successful response with `alreadyRegistered: true` instead of recomputing the registration.
+
+**Validation performed by the coordinator:**
+
+- `schedulePda` must match `vaultEmployer + tokenMint + scheduleId`
+- the on-chain vault and schedule must exist
+- the on-chain vault employer and mint must match the payload
+- the recipient count must match the on-chain schedule
+- the sum of recipient amounts must equal the on-chain `perExecutionAmount`
+- the computed Merkle root must match the on-chain schedule
+
+**Operational limits:**
+
+- oversized recipient payloads are rejected before Merkle generation
+- the current registration path rejects payloads above 1000 recipients
+- this endpoint is rate-limited and may return `429`
 
 **Example:**
 
@@ -60,30 +72,18 @@ curl -X POST {COORDINATOR_URL}/api/schedules \
   -H "Content-Type: application/json" \
   -d '{
     "schedulePda": "...",
-    "scheduleId": [1, 2, 3, ...],
+    "scheduleId": [1, 2, 3, "..."],
     "vaultEmployer": "...",
     "tokenMint": "...",
-    "recipients": [...]
-  }'
-```
-
-**Local Development Example:**
-
-```bash
-curl -X POST http://localhost:3001/api/schedules \
-  -H "Content-Type: application/json" \
-  -d '{
-    "schedulePda": "...",
-    "scheduleId": [1, 2, 3, ...],
-    "vaultEmployer": "...",
-    "tokenMint": "...",
-    "recipients": [...]
+    "recipients": [
+      { "address": "...", "amount": "100000" }
+    ]
   }'
 ```
 
 ## Get Schedule
 
-Get schedule recipient data.
+Fetch the coordinator-side summary for a registered schedule.
 
 **Endpoint:** `GET /api/schedules/:schedulePda`
 
@@ -92,17 +92,15 @@ Get schedule recipient data.
 ```json
 {
   "schedulePda": "...",
-  "scheduleId": [1, 2, 3, ...],
+  "scheduleId": [1, 2, 3, "..."],
   "vaultEmployer": "...",
-  "tokenMint": "...",
-  "recipients": [
-    { "address": "...", "amount": "100000" }
-  ],
-  "proofs": [...],
-  "merkleRoot": [1, 2, 3, ...],
-  "createdAt": 1234567890
+  "recipientCount": 2,
+  "merkleRoot": [1, 2, 3, "..."],
+  "createdAt": 1777500000000
 }
 ```
+
+This endpoint intentionally returns summary data only. Recipient addresses, per-recipient amounts, and Merkle proofs are not returned here.
 
 **Example:**
 
@@ -110,11 +108,54 @@ Get schedule recipient data.
 curl {COORDINATOR_URL}/api/schedules/SchedulePDA...
 ```
 
-**Local Development Example:**
+## Get Execution History
 
-```bash
-curl http://localhost:3001/api/schedules/SchedulePDA...
+Fetch recent execution runs and attempts for a registered schedule.
+
+**Endpoint:** `GET /api/schedules/:schedulePda/executions?limit=10`
+
+**Response:**
+
+```json
+{
+  "schedulePda": "...",
+  "runs": [
+    {
+      "id": 12,
+      "schedulePda": "...",
+      "scheduledFor": 1777520400,
+      "status": "succeeded",
+      "attemptCount": 1,
+      "maxAttempts": 5,
+      "nextAttemptAt": 1777520400,
+      "startedAt": 1777520405,
+      "finishedAt": 1777520412,
+      "claimedCount": 2,
+      "alreadyPaidCount": 0,
+      "failedClaimCount": 0,
+      "delegateSignature": "...",
+      "commitSignature": "...",
+      "attempts": [
+        {
+          "id": 44,
+          "runId": 12,
+          "attemptNumber": 1,
+          "stage": "delegate",
+          "status": "succeeded",
+          "txSignature": "...",
+          "details": null,
+          "startedAt": 1777520405,
+          "finishedAt": 1777520406
+        }
+      ]
+    }
+  ]
+}
 ```
+
+**Query parameters:**
+
+- `limit` - Optional. Clamped to `1-25`. Defaults to `10`.
 
 ## Health Check
 
@@ -126,36 +167,50 @@ Check coordinator health.
 
 ```json
 {
-  "status": "ok",
-  "timestamp": 1234567890
+  "status": "healthy",
+  "database": "connected",
+  "timestamp": 1777500000000,
+  "schedulesRegistered": 4
 }
+```
+
+If the database is unavailable, this endpoint returns an unhealthy payload with `503`.
+
+## Metrics
+
+Expose Prometheus metrics for the coordinator.
+
+**Endpoint:** `GET /api/metrics`
+
+By default this endpoint is protected. If `METRICS_PUBLIC=false`, callers must send:
+
+```bash
+Authorization: Bearer <METRICS_AUTH_TOKEN>
 ```
 
 **Example:**
 
 ```bash
-curl {COORDINATOR_URL}/api/health
-```
-
-**Local Development Example:**
-
-```bash
-curl http://localhost:3001/api/health
+curl {COORDINATOR_URL}/api/metrics \
+  -H "Authorization: Bearer <METRICS_AUTH_TOKEN>"
 ```
 
 ## Error Responses
 
-All endpoints return errors in this format:
+All JSON endpoints return errors in this format:
 
 ```json
 {
-  "error": "Error message",
-  "details": "..."
+  "error": "Error message"
 }
 ```
 
 **Status Codes:**
+
 - `200` - Success
-- `400` - Bad Request
-- `404` - Not Found
-- `500` - Internal Server Error
+- `400` - Invalid request payload
+- `403` - Forbidden
+- `404` - Not found
+- `429` - Rate limited
+- `500` - Internal server error
+- `503` - Dependency unavailable / unhealthy service state

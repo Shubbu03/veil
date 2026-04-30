@@ -6,87 +6,87 @@ Frequently asked questions about Veil.
 
 ### What is Veil?
 
-Veil is a privacy-preserving payment protocol for Solana. It enables scheduled payments where recipient lists are hidden using Merkle trees and executed privately in TEE via MagicBlock Ephemeral Rollups.
+Veil is a recurring payouts protocol on Solana. It combines on-chain vaults and schedules with off-chain recipient payloads and coordinator-driven execution.
 
 ### Why use Veil?
 
-On-chain payments are fully transparent. Veil hides recipient lists and amounts while maintaining on-chain verification through Merkle proofs.
+Veil is useful when you want recurring payouts without publishing the full recipient mapping on-chain.
 
 ### Is Veil open source?
 
-Yes, Veil is fully open source. See our [GitHub repository](https://github.com/Shubbu03/veil).
+Yes. See the [GitHub repository](https://github.com/Shubbu03/veil).
 
 ## Privacy
 
 ### What information is public?
 
-- Vault addresses
-- Schedule PDAs
-- Merkle roots (32 bytes)
-- Total recipient count
-- Execution intervals
+- vault addresses
+- schedule PDAs
+- Merkle roots
+- total recipients count
+- execution interval
+- reserved amount
+- per-execution amount
+- schedule status and next execution time
 
 ### What information is private?
 
-- Individual recipient addresses
-- Individual payment amounts
-- Recipient order/index
-- Merkle proofs (stored off-chain)
+- individual recipient addresses
+- individual payment amounts
+- recipient ordering
+- Merkle proofs
+- recipient-to-amount mapping
 
-### How does privacy work?
+### Does Veil hide the total payroll amount?
 
-Recipient lists are stored as Merkle roots on-chain. Individual claims are executed privately in TEE via MagicBlock ER, so recipient lists are never exposed.
+Not completely. The reserved amount and per-execution amount are part of on-chain schedule state. Veil hides the recipient set and per-recipient mapping, not every aggregate total.
 
 ## Technical
 
 ### What tokens are supported?
 
-Currently, a **single SPL token mint** configured in the global `VeilConfig` (e.g. USDC on devnet). The program enforces that all vaults and deposits use this `allowed_mint`.
+Veil supports the set of SPL mints allowed by the protocol whitelist. When `whitelistEnabled` is `false`, the mint restriction is effectively off. When it is `true`, vault creation and deposits must use a mint from `allowedMints`.
 
-### How many recipients per schedule?
+### How many recipients can a schedule have?
 
-Configurable, default is 1024. Check `maxRecipients` in config.
+The on-chain hard cap is 1024 recipients. The current coordinator registration path and dashboard imports cap payloads at 1000 recipients for operational headroom.
 
-### What's the execution interval?
+### What execution interval is allowed?
 
-Any interval >= 1 hour. Common intervals:
-- Daily: 86400 seconds
-- Weekly: 604800 seconds
-- Monthly: ~2592000 seconds
+Intervals must be between 1 hour and 31 days.
 
-### How does batch execution work?
+### Can I bulk import recipients?
 
-When a schedule is due:
-1. Coordinator delegates to ER
-2. Recipients claim with Merkle proofs (private)
-3. Batch completes when all claim OR timeout
-4. State committed back to Solana
+Yes. The employer dashboard supports CSV and Excel imports for recipient lists.
+
+### Are dashboard templates stored on-chain?
+
+No. Saved schedule templates in the current dashboard are stored locally in the browser and scoped per wallet.
 
 ## Coordinator
 
 ### Do I need to run a coordinator?
 
-For automatic execution, yes. You can also manually execute claims if you have ER authority.
+For automatic execution and execution-history tracking, yes. The coordinator stores off-chain recipient payloads, drives ER execution, and records execution attempts.
 
-### Can multiple coordinators run?
+### What happens if the coordinator goes down?
 
-Yes, but they should coordinate to avoid duplicate executions. Future versions will support distributed coordination.
+No vault funds are lost. New runs simply do not progress until the coordinator is back.
 
-### What happens if coordinator goes down?
+### What happens if the coordinator rate limits me?
 
-Schedules will pause until coordinator resumes. No funds are lost.
+The API returns `429`. This usually means registration or repeated reads exceeded the configured token-bucket budget. Retry after the indicated backoff.
 
 ## Security
 
 ### Are funds safe?
 
-Yes. Funds are stored in program-controlled vaults. Only the employer can withdraw available balance.
+Funds remain in program-controlled vaults. Employers can withdraw only the available, non-reserved balance.
 
-### Can recipients claim multiple times?
+### Can a recipient be paid twice in the same batch?
 
-No. Each recipient can only claim once per batch using a paid bitmap.
+No. The program tracks paid recipients with a bitmap and rejects duplicate claims.
 
-### What if Merkle proof is wrong?
+### What if the Merkle proof is wrong?
 
-Invalid proofs are rejected on-chain. Only valid recipients with correct proofs can claim.
-
+Invalid proofs fail on-chain, so only valid recipient entries can be paid.

@@ -1,6 +1,6 @@
 # Types & Errors
 
-TypeScript types and error handling.
+TypeScript types and common error handling patterns.
 
 ## Types
 
@@ -9,10 +9,10 @@ TypeScript types and error handling.
 ```typescript
 interface VaultAccount {
   employer: PublicKey;
+  vaultAta: PublicKey;
   tokenMint: PublicKey;
   available: BN;
   reserved: BN;
-  vaultAta: PublicKey;
   bump: number;
 }
 ```
@@ -23,30 +23,31 @@ interface VaultAccount {
 interface ScheduleAccount {
   employer: PublicKey;
   vault: PublicKey;
-  scheduleId: number[];
   status: ScheduleStatus;
   intervalSecs: BN;
+  nextExecution: BN;
   reservedAmount: BN;
   perExecutionAmount: BN;
+  erJobId: number[];
   merkleRoot: number[];
   totalRecipients: number;
-  nextExecution: BN;
-  lastExecutedBatch: BN;
   paidCount: number;
   paidBitmap: number[];
+  lastExecutedBatch: BN;
   batchStartTime: BN;
-  erJobId: number[];
   bump: number;
 }
 ```
+
+`scheduleId` is not stored inside `ScheduleAccount`. It is used to derive the schedule PDA.
 
 ### ScheduleStatus
 
 ```typescript
 enum ScheduleStatus {
-  Active = "active",
-  Paused = "paused",
-  Cancelled = "cancelled",
+  Active = "Active",
+  Paused = "Paused",
+  Cancelled = "Cancelled",
 }
 ```
 
@@ -63,6 +64,7 @@ interface Recipient {
 
 ```typescript
 interface CreateScheduleParams {
+  tokenMint: PublicKey;
   scheduleId: number[];
   intervalSecs: number;
   reservedAmount: BN;
@@ -80,8 +82,9 @@ interface VeilConfig {
   erAuthority: PublicKey;
   governance: PublicKey;
   paused: boolean;
-  allowedMint: PublicKey;
+  whitelistEnabled: boolean;
   maxRecipients: number;
+  allowedMints: PublicKey[];
   batchTimeoutSecs: BN;
 }
 ```
@@ -90,13 +93,10 @@ interface VeilConfig {
 
 ### Anchor Errors
 
-Veil uses Anchor error codes. Common errors:
-
 ```typescript
 try {
   await client.deposit(amount, tokenMint);
 } catch (error) {
-  // Anchor errors include error code
   if (error.message.includes("InsufficientFunds")) {
     console.log("Not enough tokens");
   } else if (error.message.includes("Paused")) {
@@ -111,13 +111,15 @@ try {
 
 ### Common Error Codes
 
-- `InsufficientFunds` - Not enough balance
-- `Paused` - Protocol is paused
-- `Unauthorized` - Not authorized to perform action
-- `ScheduleNotActive` - Schedule is not active
-- `InvalidMerkleProof` - Merkle proof verification failed
-- `AlreadyPaid` - Recipient already claimed
-- `InvalidMaxRecipients` - Too many recipients
+- `InsufficientFunds`
+- `Paused`
+- `Unauthorized`
+- `ScheduleNotActive`
+- `ScheduleNotPaused`
+- `InvalidMerkleProof`
+- `AlreadyPaid`
+- `InvalidMaxRecipients`
+- `InvalidMint`
 
 ### Error Checking
 
@@ -125,7 +127,7 @@ try {
 import { AnchorError } from "@coral-xyz/anchor";
 
 try {
-  await client.createSchedule(...);
+  await client.createSchedule(/* ... */);
 } catch (err) {
   if (err instanceof AnchorError) {
     console.log("Error code:", err.error.errorCode.code);

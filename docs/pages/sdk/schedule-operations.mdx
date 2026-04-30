@@ -4,12 +4,13 @@ Create and manage payment schedules.
 
 ## Create Schedule (Simple)
 
-Use `createScheduleFromRecipients` for automatic merkle tree generation.
+Use `createScheduleFromRecipients` for automatic Merkle-tree generation.
 
 ```typescript
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 
+const tokenMint = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 const recipients = [
   { address: new PublicKey("recipient1..."), amount: 100_000n },
   { address: new PublicKey("recipient2..."), amount: 200_000n },
@@ -18,52 +19,58 @@ const recipients = [
 
 const { signature, scheduleId, merkleRoot } =
   await client.createScheduleFromRecipients({
+    tokenMint,
     recipients,
-    intervalSecs: 86400, // Daily (24 hours)
-    reservedAmount: new BN(10_000_000), // Total reserved: 10 USDC
-    perExecutionAmount: new BN(500_000), // Per cycle: 0.5 USDC
+    intervalSecs: 86400,
+    reservedAmount: new BN(10_000_000),
+    perExecutionAmount: new BN(500_000),
   });
-
-console.log("Schedule created:", signature);
-console.log("Schedule ID:", scheduleId);
-console.log("Merkle Root:", merkleRoot);
 ```
 
 **Parameters:**
-- `recipients` - Array of `{ address: PublicKey, amount: bigint }`
-- `intervalSecs` - Seconds between executions
-- `reservedAmount` - Total amount to reserve (BN)
-- `perExecutionAmount` - Amount paid per execution cycle (BN)
+
+- `tokenMint` - token mint backing the vault
+- `recipients` - array of `{ address: PublicKey, amount: bigint }`
+- `intervalSecs` - seconds between executions
+- `reservedAmount` - total amount to reserve
+- `perExecutionAmount` - amount paid per execution cycle
 
 **Returns:**
-- `signature` - Transaction signature
-- `scheduleId` - Schedule ID (number[])
-- `merkleRoot` - Merkle root (number[])
+
+- `signature`
+- `scheduleId`
+- `merkleRoot`
+
+**Interval constraints:**
+
+- minimum: `3600` seconds (1 hour)
+- maximum: `2678400` seconds (31 days)
 
 ## Create Schedule (Advanced)
 
-For manual control over schedule parameters.
+Use `createSchedule` when you want full control over IDs and Merkle generation.
 
 ```typescript
-import { generateScheduleId, buildMerkleTree } from "@veil-dev/sdk";
+import { PublicKey } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+import { buildMerkleTree, generateScheduleId } from "@veil-dev/sdk";
 
-// Generate IDs
+const tokenMint = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 const scheduleId = generateScheduleId();
 const erJobId = generateScheduleId();
 
-// Build merkle tree manually
 const recipients = [
   { address: pubkey1, amount: 100_000n },
   { address: pubkey2, amount: 200_000n },
 ];
-const { root, proofs } = buildMerkleTree(recipients);
+const { root } = buildMerkleTree(recipients);
 
-// Create schedule
 const signature = await client.createSchedule({
+  tokenMint,
   scheduleId,
   intervalSecs: 86400,
   reservedAmount: new BN(10_000_000),
-  perExecutionAmount: new BN(500_000),
+  perExecutionAmount: new BN(300_000),
   merkleRoot: Array.from(root),
   totalRecipients: recipients.length,
   erJobId,
@@ -75,27 +82,24 @@ const signature = await client.createSchedule({
 Pause or resume a schedule.
 
 ```typescript
-import { getVaultPda, getSchedulePda } from "@veil-dev/sdk";
+import { getSchedulePda, getVaultPda } from "@veil-dev/sdk";
 
-const [vaultPda] = getVaultPda(wallet.publicKey);
+const [vaultPda] = getVaultPda(wallet.publicKey, tokenMint);
 const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
 
-// Pause
-await client.pauseSchedule(schedulePda, true);
-
-// Resume
-await client.pauseSchedule(schedulePda, false);
+await client.pauseSchedule(schedulePda, true);  // pause
+await client.pauseSchedule(schedulePda, false); // resume
 ```
 
 ## Cancel Schedule
 
-Cancelling returns reserved funds to available balance.
+Cancelling returns the schedule’s reserved balance to the vault’s available balance.
 
 ```typescript
 await client.cancelSchedule(schedulePda);
 ```
 
-**Note:** Cancelled schedules cannot be resumed.
+Cancelled schedules cannot be resumed.
 
 ## Get Schedule State
 
@@ -104,50 +108,50 @@ const schedule = await client.getSchedule(schedulePda);
 
 if (schedule) {
   console.log("Status:", schedule.status);
-  console.log("Next Execution:", schedule.nextExecution.toString());
+  console.log("Next execution:", schedule.nextExecution.toString());
   console.log("Reserved:", schedule.reservedAmount.toString());
+  console.log("Per cycle:", schedule.perExecutionAmount.toString());
   console.log("Recipients:", schedule.totalRecipients);
-  console.log("Last Executed Batch:", schedule.lastExecutedBatch.toString());
+  console.log("Last batch:", schedule.lastExecutedBatch.toString());
 }
 ```
 
-**Returns:** `ScheduleAccount | null`
+**ScheduleAccount fields:**
 
-**ScheduleAccount Fields:**
-- `employer` - Vault owner
-- `vault` - Vault PDA
-- `scheduleId` - Schedule identifier
-- `status` - Active | Paused | Cancelled
-- `intervalSecs` - Seconds between executions
-- `reservedAmount` - Reserved funds (BN)
-- `perExecutionAmount` - Amount per cycle (BN)
-- `merkleRoot` - Merkle root (number[])
-- `totalRecipients` - Number of recipients
-- `nextExecution` - Next execution timestamp (BN)
-- `lastExecutedBatch` - Last batch number (BN)
+- `employer`
+- `vault`
+- `status`
+- `intervalSecs`
+- `nextExecution`
+- `reservedAmount`
+- `perExecutionAmount`
+- `erJobId`
+- `merkleRoot`
+- `totalRecipients`
+- `paidCount`
+- `paidBitmap`
+- `lastExecutedBatch`
+- `batchStartTime`
+- `bump`
+
+`scheduleId` is used to derive the PDA but is not stored inside `ScheduleAccount`.
 
 ## PDA Helpers
 
 Derive program addresses without making RPC calls.
 
 ```typescript
-import {
-  getVaultPda,
-  getSchedulePda,
-} from "@veil-dev/sdk";
+import { getSchedulePda, getVaultPda } from "@veil-dev/sdk";
 
-// Vault for an employer
-const [vaultPda, vaultBump] = getVaultPda(employerPubkey);
-
-// Schedule
+const [vaultPda] = getVaultPda(employerPubkey, tokenMint);
 const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
 ```
 
-## Example: Complete Schedule Flow
+## Complete Flow
 
 ```typescript
-// 1. Create schedule
-const { scheduleId, merkleRoot } = await client.createScheduleFromRecipients({
+const { scheduleId } = await client.createScheduleFromRecipients({
+  tokenMint,
   recipients: [
     { address: recipient1, amount: 100_000n },
     { address: recipient2, amount: 200_000n },
@@ -157,17 +161,20 @@ const { scheduleId, merkleRoot } = await client.createScheduleFromRecipients({
   perExecutionAmount: new BN(300_000),
 });
 
-// 2. Get schedule PDA
-const [vaultPda] = getVaultPda(wallet.publicKey);
+const [vaultPda] = getVaultPda(wallet.publicKey, tokenMint);
 const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
 
-// 3. Check status
 const schedule = await client.getSchedule(schedulePda);
 console.log("Status:", schedule?.status);
 
-// 4. Pause if needed
 await client.pauseSchedule(schedulePda, true);
-
-// 5. Resume
 await client.pauseSchedule(schedulePda, false);
 ```
+
+## Dashboard Shortcuts
+
+The dashboard adds a few non-SDK workflow features on top of this flow:
+
+- CSV / Excel recipient imports
+- local saved templates per wallet
+- coordinator execution-history views

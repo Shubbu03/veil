@@ -1,13 +1,16 @@
 # Payroll Example
 
-Example: Setting up private payroll payments for employees.
+Example: setting up recurring payroll payments for employees.
 
 ## Use Case
 
 A company wants to pay employees weekly without exposing:
-- Who gets paid
-- Individual salaries
-- Total payroll amount
+
+- who gets paid
+- each employee’s amount
+- the recipient-to-amount mapping
+
+Reserved totals and per-execution totals are still visible on-chain, so Veil improves recipient privacy rather than hiding every aggregate number.
 
 ## Setup
 
@@ -17,16 +20,14 @@ import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 
 const client = new VeilClient({ connection, wallet });
-const USDC = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+const USDC = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 ```
 
 ## Step 1: Initialize Payroll Vault
 
 ```typescript
-// Create vault for payroll
 await client.initVault(USDC);
 
-// Deposit monthly payroll budget
 const monthlyBudget = new BN(100_000_000); // 100 USDC
 await client.deposit(monthlyBudget, USDC);
 ```
@@ -38,41 +39,37 @@ const employees = [
   {
     name: "Alice",
     address: new PublicKey("AliceAddress..."),
-    salary: 2_000_000n, // 2 USDC per week
+    salary: 2_000_000n,
   },
   {
     name: "Bob",
     address: new PublicKey("BobAddress..."),
-    salary: 1_500_000n, // 1.5 USDC per week
+    salary: 1_500_000n,
   },
   {
     name: "Charlie",
     address: new PublicKey("CharlieAddress..."),
-    salary: 1_800_000n, // 1.8 USDC per week
+    salary: 1_800_000n,
   },
 ];
 
-const recipients = employees.map((e) => ({
-  address: e.address,
-  amount: e.salary,
+const recipients = employees.map((employee) => ({
+  address: employee.address,
+  amount: employee.salary,
 }));
 ```
 
 ## Step 3: Create Weekly Payroll Schedule
 
 ```typescript
-// Weekly payroll (7 days)
 const weeklyInterval = 7 * 24 * 60 * 60; // 604800 seconds
-
-// Reserve for 4 weeks
 const weeksToReserve = 4;
-const totalWeeklyPayroll = recipients.reduce(
-  (sum, r) => sum + r.amount,
-  0n
-);
+
+const totalWeeklyPayroll = recipients.reduce((sum, recipient) => sum + recipient.amount, 0n);
 const reservedAmount = new BN(Number(totalWeeklyPayroll) * weeksToReserve);
 
 const { scheduleId } = await client.createScheduleFromRecipients({
+  tokenMint: USDC,
   recipients,
   intervalSecs: weeklyInterval,
   reservedAmount,
@@ -85,73 +82,79 @@ const { scheduleId } = await client.createScheduleFromRecipients({
 ```typescript
 import { getVaultPda, getSchedulePda } from "@veil-dev/sdk";
 
-const [vaultPda] = getVaultPda(wallet.publicKey);
+const [vaultPda] = getVaultPda(wallet.publicKey, USDC);
 const [schedulePda] = getSchedulePda(vaultPda, scheduleId);
 
-// Check schedule status
 const schedule = await client.getSchedule(schedulePda);
 console.log("Next payment:", new Date(schedule.nextExecution.toNumber() * 1000));
 console.log("Batches executed:", schedule.lastExecutedBatch.toString());
 ```
 
-## Step 5: Add New Employee
+## Step 5: Add a New Employee
 
-To add a new employee, create a new schedule with updated recipients:
+To change the recipient set, create a new schedule with the updated list:
 
 ```typescript
 const updatedRecipients = [
   ...recipients,
-  { address: newPublicKey("NewEmployee..."), amount: 1_200_000n },
+  { address: new PublicKey("NewEmployee..."), amount: 1_200_000n },
 ];
 
-// Create new schedule with updated list
+const updatedWeeklyPayroll = updatedRecipients.reduce(
+  (sum, recipient) => sum + recipient.amount,
+  0n
+);
+
 const { scheduleId: newScheduleId } = await client.createScheduleFromRecipients({
+  tokenMint: USDC,
   recipients: updatedRecipients,
   intervalSecs: weeklyInterval,
-  reservedAmount: new BN(Number(totalWeeklyPayroll) * 4),
-  perExecutionAmount: new BN(Number(totalWeeklyPayroll)),
+  reservedAmount: new BN(Number(updatedWeeklyPayroll) * 4),
+  perExecutionAmount: new BN(Number(updatedWeeklyPayroll)),
 });
 ```
 
-## Privacy Benefits
+## Privacy Profile
 
-**What's Public:**
-- Vault address
-- Schedule PDA
-- Merkle root (32 bytes)
-- Total recipients count (3)
-- Execution interval
+**Public:**
 
-**What's Private:**
-- Individual employee addresses
-- Individual salaries
-- Total payroll amount
-- Employee order/index
+- vault address
+- schedule PDA
+- Merkle root
+- total recipients count
+- execution interval
+- reserved amount
+- per-execution total
+
+**Private:**
+
+- individual employee addresses
+- individual salaries
+- recipient ordering
+- Merkle proofs
 
 ## Complete Example
 
 ```typescript
 async function setupPayroll() {
-  // Setup
   const client = new VeilClient({ connection, wallet });
-  const USDC = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+  const USDC = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 
-  // 1. Create vault
   await client.initVault(USDC);
   await client.deposit(new BN(100_000_000), USDC);
 
-  // 2. Define employees
   const employees = [
     { address: new PublicKey("..."), amount: 2_000_000n },
     { address: new PublicKey("..."), amount: 1_500_000n },
   ];
 
-  // 3. Create weekly schedule
-  const weeklyPayroll = employees.reduce((sum, e) => sum + e.amount, 0n);
+  const weeklyPayroll = employees.reduce((sum, employee) => sum + employee.amount, 0n);
+
   const { scheduleId } = await client.createScheduleFromRecipients({
+    tokenMint: USDC,
     recipients: employees,
-    intervalSecs: 604800, // Weekly
-    reservedAmount: new BN(Number(weeklyPayroll) * 4), // 4 weeks
+    intervalSecs: 604800,
+    reservedAmount: new BN(Number(weeklyPayroll) * 4),
     perExecutionAmount: new BN(Number(weeklyPayroll)),
   });
 

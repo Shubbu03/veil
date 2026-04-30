@@ -1,6 +1,6 @@
 # VeilClient
 
-The main client class for interacting with Veil.
+The main SDK entry point for interacting with the Veil program.
 
 ## Constructor
 
@@ -16,50 +16,69 @@ const client = new VeilClient({
 ```
 
 **Parameters:**
+
 - `connection` - Solana RPC connection
-- `wallet` - Anchor wallet (must be signer)
+- `wallet` - Anchor wallet used as the signer
 
 ## Properties
 
 ```typescript
-client.connection  // Solana Connection
-client.wallet      // Anchor Wallet
-client.program     // Anchor Program instance
+client.connection
+client.wallet
+client.provider
+client.program
 ```
 
 ## Methods Overview
 
 ### Vault Operations
-- `initVault(mint: PublicKey)` - Create a vault
-- `deposit(amount: BN, mint: PublicKey)` - Deposit tokens
-- `withdraw(amount: BN, mint: PublicKey)` - Withdraw tokens
-- `getVault()` - Get vault state
+
+- `initVault(tokenMint: PublicKey)` - create a vault for the current wallet and mint
+- `deposit(amount: BN, tokenMint: PublicKey)` - deposit tokens into the vault
+- `withdraw(amount: BN, tokenMint: PublicKey)` - withdraw available balance
+- `getVault(tokenMint: PublicKey, employer?: PublicKey)` - fetch vault state
 
 ### Schedule Operations
-- `createSchedule(params)` - Create schedule (advanced)
-- `createScheduleFromRecipients(params)` - Create schedule (simple)
-- `pauseSchedule(schedulePda: PublicKey, paused: boolean)` - Pause/resume
-- `cancelSchedule(schedulePda: PublicKey)` - Cancel schedule
-- `getSchedule(schedulePda: PublicKey)` - Get schedule state
 
-### Config
-- `getConfig()` - Get global protocol config
+- `createSchedule(params: CreateScheduleParams)` - create a schedule from prepared parameters
+- `createScheduleFromRecipients(params)` - build the Merkle root and create the schedule
+- `pauseSchedule(schedulePda: PublicKey, pause: boolean)` - pause or resume a schedule
+- `cancelSchedule(schedulePda: PublicKey)` - cancel a schedule and release reserved funds
+- `getSchedule(schedulePda: PublicKey)` - fetch schedule state
 
-### Claim Payment
-- `claimPayment(...)` - Claim payment (for ER authority)
+### Config Operations
+
+- `getConfig()` - fetch global protocol configuration
+- `initConfig(...)` - initialize governance, ER authority, whitelist, and limits
+- `updateMintWhitelist(whitelistEnabled: boolean, allowedMints: PublicKey[])` - update allowed mints
+
+### Claim Operation
+
+- `claimPayment(...)` - execute a Merkle-proof-backed claim, typically by the ER authority flow
 
 ## Example
 
 ```typescript
 import { VeilClient } from "@veil-dev/sdk";
-import { Connection, Keypair } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { Wallet } from "@coral-xyz/anchor";
 
 const connection = new Connection("https://api.devnet.solana.com");
+const keypair = Keypair.fromSecretKey(/* your secret key */);
 const wallet = new Wallet(keypair);
-
 const client = new VeilClient({ connection, wallet });
 
-// Use client methods...
+const tokenMint = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 await client.initVault(tokenMint);
 ```
+
+## Scope of the SDK
+
+The SDK talks to the on-chain program directly. Coordinator-only features such as:
+
+- schedule registration
+- execution history
+- dashboard CSV / Excel imports
+- saved dashboard templates
+
+live outside `VeilClient` and are handled by the coordinator or dashboard layers.

@@ -1,177 +1,240 @@
 # Program Instructions
 
-On-chain instructions for the Veil program.
+On-chain instructions exposed by the Veil program.
+
+## Admin Instructions
+
+### init_config
+
+Initialize global protocol configuration.
+
+**Accounts:**
+
+- `admin` - signer creating the config
+- `config` - config PDA (`["veil_config"]`)
+- `system_program`
+
+**Parameters:**
+
+- `governance: Pubkey`
+- `er_authority: Pubkey`
+- `allowed_mints: Vec<Pubkey>`
+- `whitelist_enabled: bool`
+- `max_recipients: u16`
+- `batch_timeout_secs: u64`
+
+### update_mint_whitelist
+
+Update whitelist mode and the set of allowed mints.
+
+**Accounts:**
+
+- `governance`
+- `config`
+
+**Parameters:**
+
+- `whitelist_enabled: bool`
+- `allowed_mints: Vec<Pubkey>`
+
+### set_er_authority
+
+Rotate the ER authority.
+
+**Accounts:**
+
+- `governance`
+- `config`
+
+**Parameters:**
+
+- `new_er_authority: Pubkey`
+
+### pause
+
+Pause the protocol.
+
+**Accounts:**
+
+- `governance`
+- `config`
+
+### unpause
+
+Unpause the protocol.
+
+**Accounts:**
+
+- `governance`
+- `config`
 
 ## Vault Instructions
 
 ### init_vault
 
-Initialize a vault for an employer.
+Initialize a token-specific vault for an employer.
 
 **Accounts:**
-- `employer` - Signer, vault owner
-- `vault` - Vault PDA (seeds: `["vault", employer]`)
-- `vault_ata` - Vault's token account
-- `token_mint` - Token mint
-- `token_program` - Token program
-- `associated_token_program` - Associated token program
-- `system_program` - System program
 
-**Parameters:**
-- `token_mint` - Token mint address
+- `employer`
+- `config`
+- `token_mint`
+- `vault` - PDA `["vault", employer, token_mint]`
+- `vault_ata` - PDA `["vault_ata", vault]`
+- `token_program`
+- `system_program`
+
+**Parameters:** none
 
 ### deposit
 
-Deposit tokens into vault.
+Deposit tokens into a vault.
 
 **Accounts:**
-- `employer` - Signer, vault owner
-- `vault` - Vault PDA
-- `vault_ata` - Vault's token account
-- `employer_ata` - Employer's token account
-- `token_mint` - Token mint
-- `token_program` - Token program
+
+- `employer`
+- `vault`
+- `vault_ata`
+- `employer_ata`
+- `token_mint`
+- `token_program`
 
 **Parameters:**
-- `amount` - Amount to deposit (u64)
+
+- `amount: u64`
 
 ### withdraw
 
-Withdraw tokens from vault.
+Withdraw available tokens from a vault.
 
 **Accounts:**
-- `employer` - Signer, vault owner
-- `vault` - Vault PDA
-- `vault_ata` - Vault's token account
-- `employer_ata` - Employer's token account
-- `token_mint` - Token mint
-- `token_program` - Token program
+
+- `employer`
+- `vault`
+- `vault_ata`
+- `employer_ata`
+- `token_mint`
+- `token_program`
 
 **Parameters:**
-- `amount` - Amount to withdraw (u64)
+
+- `amount: u64`
+
+### delegate_vault
+
+Delegate vault state to the ER flow.
+
+### undelegate_vault
+
+Undelegate vault state from the ER flow.
 
 ## Schedule Instructions
 
 ### create_schedule
 
-Create a payment schedule.
+Create a recurring payout schedule.
 
 **Accounts:**
-- `employer` - Signer, vault owner
-- `config` - Global config PDA
-- `vault` - Vault PDA
-- `schedule` - Schedule PDA (seeds: `["schedule", vault, schedule_id]`)
-- `system_program` - System program
+
+- `employer`
+- `config`
+- `vault`
+- `schedule` - PDA `["schedule", vault, schedule_id]`
+- `system_program`
 
 **Parameters:**
-- `schedule_id` - Schedule identifier ([u8; 32])
-- `interval_secs` - Seconds between executions (u64)
-- `reserved_amount` - Total amount to reserve (u64)
-- `per_execution_amount` - Amount per execution (u64)
-- `merkle_root` - Merkle root ([u8; 32])
-- `total_recipients` - Number of recipients (u16)
-- `er_job_id` - ER job identifier ([u8; 32])
+
+- `schedule_id: [u8; 32]`
+- `interval_secs: u64`
+- `reserved_amount: u64`
+- `per_execution_amount: u64`
+- `merkle_root: [u8; 32]`
+- `total_recipients: u16`
+- `er_job_id: [u8; 32]`
+
+**Validation highlights:**
+
+- interval must be between 1 hour and 31 days
+- `reserved_amount` must not exceed vault `available`
+- `per_execution_amount` must be positive and not exceed `reserved_amount`
+- `total_recipients` must be within config and hard protocol limits
 
 ### pause_schedule
 
 Pause or resume a schedule.
 
 **Accounts:**
-- `employer` - Signer, vault owner
-- `schedule` - Schedule PDA
+
+- `employer`
+- `config`
+- `schedule`
 
 **Parameters:**
-- `schedule_id` - Schedule identifier ([u8; 32])
-- `paused` - Pause flag (bool)
+
+- `pause: bool`
 
 ### cancel_schedule
 
-Cancel a schedule and return reserved funds.
+Cancel a schedule and release reserved funds back into the vault’s available balance.
 
 **Accounts:**
-- `employer` - Signer, vault owner
-- `vault` - Vault PDA
-- `schedule` - Schedule PDA
 
-**Parameters:**
-- `schedule_id` - Schedule identifier ([u8; 32])
+- `employer`
+- `config`
+- `vault`
+- `schedule`
 
-### claim_payment
-
-Claim a payment (executed on ER).
-
-**Accounts:**
-- `er_authority` - Signer, ER authority
-- `config` - Global config PDA
-- `vault` - Vault PDA
-- `vault_ata` - Vault's token account
-- `schedule` - Schedule PDA
-- `recipient_ata` - Recipient's token account
-- `token_mint` - Token mint
-- `token_program` - Token program
-- `associated_token_program` - Associated token program
-- `system_program` - System program
-
-**Parameters:**
-- `schedule_id` - Schedule identifier ([u8; 32])
-- `recipient` - Recipient address (Pubkey)
-- `amount` - Payment amount (u64)
-- `leaf_index` - Leaf index in Merkle tree (u16)
-- `proof` - Merkle proof (Vec of `[u8; 32]` arrays)
-
-## Admin Instructions
-
-### init_config
-
-Initialize global protocol config.
-
-**Accounts:**
-- `admin` - Signer, admin
-- `config` - Config PDA (seeds: `["veil_config"]`)
-- `system_program` - System program
-
-**Parameters:**
-- `governance` - Governance address (Pubkey)
-- `er_authority` - ER authority address (Pubkey)
-- `allowed_mint` - Allowed token mint (Pubkey)
-- `max_recipients` - Maximum recipients per schedule (u16)
-- `batch_timeout_secs` - Batch timeout in seconds (u64)
-
-### pause
-
-Pause/unpause protocol.
-
-**Accounts:**
-- `governance` - Signer, governance
-- `config` - Config PDA
-
-**Parameters:**
-- `paused` - Pause flag (bool)
-
-## ER Instructions
+**Parameters:** none
 
 ### delegate_schedule
 
-Delegate schedule to ER.
+Delegate a schedule into the ER execution flow.
 
-**Accounts:**
-- `er_authority` - Signer, ER authority
-- `config` - Global config PDA
-- `vault` - Vault PDA
-- `schedule` - Schedule PDA
+**Accounts:** ER flow accounts
 
 **Parameters:**
-- `schedule_id` - Schedule identifier ([u8; 32])
+
+- `schedule_id: [u8; 32]`
+
+### undelegate_schedule
+
+Undelegate a schedule from the ER execution flow.
+
+**Accounts:** ER flow accounts
+
+**Parameters:**
+
+- `schedule_id: [u8; 32]`
+
+### claim_payment
+
+Execute a Merkle-proof-backed claim.
+
+**Accounts:**
+
+- `er_authority`
+- `config`
+- `vault`
+- `vault_ata`
+- `schedule`
+- `recipient_ata`
+- `token_mint`
+- `token_program`
+
+**Parameters:**
+
+- `schedule_id: [u8; 32]`
+- `recipient: Pubkey`
+- `amount: u64`
+- `leaf_index: u16`
+- `proof: Vec<[u8; 32]>`
+
+## Commit Instruction
 
 ### commit
 
-Commit ER execution state.
+Commit ER execution state back to Solana.
 
-**Accounts:**
-- `er_authority` - Signer, ER authority
-- `config` - Global config PDA
-- `vault` - Vault PDA
-- `schedule` - Schedule PDA
+**Accounts:** commit context accounts
 
-**Parameters:**
-- `schedule_id` - Schedule identifier ([u8; 32])
+**Parameters:** none

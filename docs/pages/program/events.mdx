@@ -2,83 +2,182 @@
 
 Events emitted by the Veil program.
 
-## VaultCreated
+## Config Events
 
-Emitted when a vault is created.
+### ConfigInitialized
 
 ```rust
-pub struct VaultCreated {
+pub struct ConfigInitialized {
+    pub governance: Pubkey,
+    pub er_authority: Pubkey,
+    pub whitelist_enabled: bool,
+    pub allowed_mints: Vec<Pubkey>,
+    pub max_recipients: u16,
+    pub batch_timeout_secs: u64,
+}
+```
+
+### MintWhitelistUpdated
+
+```rust
+pub struct MintWhitelistUpdated {
+    pub governance: Pubkey,
+    pub whitelist_enabled: bool,
+    pub allowed_mints: Vec<Pubkey>,
+    pub timestamp: i64,
+}
+```
+
+### ProgramPaused
+
+```rust
+pub struct ProgramPaused {
+    pub governance: Pubkey,
+    pub timestamp: i64,
+}
+```
+
+### ProgramUnpaused
+
+```rust
+pub struct ProgramUnpaused {
+    pub governance: Pubkey,
+    pub timestamp: i64,
+}
+```
+
+### ErAuthorityUpdated
+
+```rust
+pub struct ErAuthorityUpdated {
+    pub governance: Pubkey,
+    pub old_er_authority: Pubkey,
+    pub new_er_authority: Pubkey,
+    pub timestamp: i64,
+}
+```
+
+## Vault Events
+
+### VaultInitialized
+
+```rust
+pub struct VaultInitialized {
     pub employer: Pubkey,
     pub vault: Pubkey,
+    pub vault_ata: Pubkey,
     pub token_mint: Pubkey,
 }
 ```
 
-## TokensDeposited
-
-Emitted when tokens are deposited.
+### VaultDeposited
 
 ```rust
-pub struct TokensDeposited {
+pub struct VaultDeposited {
     pub vault: Pubkey,
+    pub employer: Pubkey,
     pub amount: u64,
     pub available: u64,
 }
 ```
 
-## TokensWithdrawn
-
-Emitted when tokens are withdrawn.
+### VaultWithdrawn
 
 ```rust
-pub struct TokensWithdrawn {
+pub struct VaultWithdrawn {
     pub vault: Pubkey,
+    pub employer: Pubkey,
     pub amount: u64,
     pub available: u64,
 }
 ```
 
-## ScheduleCreated
+### VaultDelegated
 
-Emitted when a schedule is created.
+```rust
+pub struct VaultDelegated {
+    pub vault: Pubkey,
+    pub er_authority: Pubkey,
+    pub timestamp: i64,
+}
+```
+
+### VaultUndelegated
+
+```rust
+pub struct VaultUndelegated {
+    pub vault: Pubkey,
+    pub er_authority: Pubkey,
+    pub timestamp: i64,
+}
+```
+
+## Schedule Events
+
+### ScheduleCreated
 
 ```rust
 pub struct ScheduleCreated {
-    pub schedule: Pubkey,
     pub employer: Pubkey,
-    pub schedule_id: [u8; 32],
-    pub interval_secs: u64,
-    pub reserved_amount: u64,
-    pub total_recipients: u16,
-}
-```
-
-## SchedulePaused
-
-Emitted when a schedule is paused/resumed.
-
-```rust
-pub struct SchedulePaused {
+    pub vault: Pubkey,
     pub schedule: Pubkey,
-    pub paused: bool,
+    pub reserved_amount: u64,
+    pub interval_secs: u64,
+    pub next_execution: i64,
 }
 ```
 
-## ScheduleCancelled
-
-Emitted when a schedule is cancelled.
+### ScheduleCancelled
 
 ```rust
 pub struct ScheduleCancelled {
-    pub schedule: Pubkey,
     pub employer: Pubkey,
+    pub schedule: Pubkey,
     pub returned_amount: u64,
 }
 ```
 
-## PaymentClaimed
+### SchedulePaused
 
-Emitted when a payment is claimed.
+```rust
+pub struct SchedulePaused {
+    pub employer: Pubkey,
+    pub schedule: Pubkey,
+    pub timestamp: i64,
+}
+```
+
+### ScheduleResumed
+
+```rust
+pub struct ScheduleResumed {
+    pub employer: Pubkey,
+    pub schedule: Pubkey,
+    pub timestamp: i64,
+}
+```
+
+### ScheduleDelegated
+
+```rust
+pub struct ScheduleDelegated {
+    pub schedule: Pubkey,
+    pub timestamp: i64,
+}
+```
+
+### ScheduleUndelegated
+
+```rust
+pub struct ScheduleUndelegated {
+    pub schedule: Pubkey,
+    pub timestamp: i64,
+}
+```
+
+## Execution Events
+
+### PaymentClaimed
 
 ```rust
 pub struct PaymentClaimed {
@@ -90,36 +189,19 @@ pub struct PaymentClaimed {
 }
 ```
 
-## BatchCompleted
-
-Emitted when a batch execution completes.
+### StateCommitted
 
 ```rust
-pub struct BatchCompleted {
-    pub schedule: Pubkey,
-    pub batch_number: u64,
-    pub paid_count: u16,
-    pub next_execution: u64,
+pub struct StateCommitted {
+    pub account: Pubkey,
+    pub timestamp: i64,
 }
 ```
 
 ## Listening to Events
 
-### Using Anchor
-
 ```typescript
 const listener = program.addEventListener("PaymentClaimed", (event) => {
   console.log("Payment claimed:", event);
 });
-```
-
-### Using Web3.js
-
-```typescript
-connection.onProgramAccountChange(
-  programId,
-  (accountInfo) => {
-    // Parse events from account data
-  }
-);
 ```
