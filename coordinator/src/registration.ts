@@ -5,6 +5,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { config } from "./config";
 import { createLogger } from "./logger";
+import { RegisterSchedulePayload } from "./types";
 
 const connection = new Connection(config.solanaRpcUrl, "confirmed");
 const readOnlyWallet = new Wallet(Keypair.generate());
@@ -26,13 +27,7 @@ export class RegistrationValidationError extends Error {
     }
 }
 
-export interface RegisterScheduleRequest {
-    schedulePda: string;
-    scheduleId: number[];
-    vaultEmployer: string;
-    tokenMint: string;
-    recipients: Array<{ address: string; amount: string }>;
-}
+export interface RegisterScheduleRequest extends RegisterSchedulePayload {}
 
 export interface ValidatedScheduleRegistration {
     schedulePda: string;
@@ -146,6 +141,41 @@ export async function validateScheduleRegistration(
         merkleRoot: Array.from(root),
         proofs,
     };
+}
+
+export function hasOversizedRecipientSet(payload: Partial<RegisterSchedulePayload>, maxRecipients: number) {
+    return Array.isArray(payload.recipients) && payload.recipients.length > maxRecipients;
+}
+
+export function isSameRegistrationPayload(
+    existing: RegisterSchedulePayload,
+    incoming: RegisterSchedulePayload
+) {
+    if (
+        existing.schedulePda !== incoming.schedulePda ||
+        existing.vaultEmployer !== incoming.vaultEmployer ||
+        existing.tokenMint !== incoming.tokenMint ||
+        existing.scheduleId.length !== incoming.scheduleId.length ||
+        existing.recipients.length !== incoming.recipients.length
+    ) {
+        return false;
+    }
+
+    for (let index = 0; index < existing.scheduleId.length; index += 1) {
+        if (existing.scheduleId[index] !== incoming.scheduleId[index]) {
+            return false;
+        }
+    }
+
+    for (let index = 0; index < existing.recipients.length; index += 1) {
+        const left = existing.recipients[index];
+        const right = incoming.recipients[index];
+        if (left.address !== right.address || left.amount !== right.amount) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function parsePublicKey(value: string, field: string): PublicKey {
