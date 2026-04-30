@@ -78,3 +78,24 @@ export const apiRequestDurationSeconds = new Histogram({
     buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
     registers: [metricsRegistry],
 });
+
+export const apiRateLimitDecisionsTotal = new Counter({
+    name: "veil_api_rate_limit_decisions_total",
+    help: "Rate limit decisions by policy and outcome",
+    labelNames: ["policy", "outcome"] as const,
+    registers: [metricsRegistry],
+});
+
+export const apiConcurrentRequestsTotal = new Counter({
+    name: "veil_api_concurrency_limit_decisions_total",
+    help: "Concurrency limit decisions by policy and outcome",
+    labelNames: ["policy", "outcome"] as const,
+    registers: [metricsRegistry],
+});
+
+export const apiRateLimitBackendEventsTotal = new Counter({
+    name: "veil_api_rate_limit_backend_events_total",
+    help: "Rate limit backend usage, fallback, and error events",
+    labelNames: ["policy", "backend", "outcome"] as const,
+    registers: [metricsRegistry],
+});

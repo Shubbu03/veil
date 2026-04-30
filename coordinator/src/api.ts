@@ -1,8 +1,10 @@
 import express, { Request, Response } from "express";
 import { recipientStore } from "./store";
-import { ScheduleRecipientData } from "./types";
+import { RegisterSchedulePayload, ScheduleRecipientData } from "./types";
 import { executionRepository } from "./db/execution-repository";
 import {
+    hasOversizedRecipientSet,
+    isSameRegistrationPayload,
     RegistrationValidationError,
     RegisterScheduleRequest,
     validateScheduleRegistration,
@@ -13,9 +15,31 @@ import {
     apiRequestsTotal,
     metricsRegistry,
 } from "./metrics";
+import { RateLimitService } from "./rate-limit";
+import { buildIpKey, buildWalletKey } from "./rate-limit/keys";
+import { config } from "./config";
 
 const router = express.Router();
 const logger = createLogger("api");
+const rateLimitService = new RateLimitService({
+    enabled: config.rateLimitEnabled,
+    dryRun: config.rateLimitDryRun,
+    redisUrl: config.rateLimitRedisUrl || undefined,
+    redisKeyPrefix: config.rateLimitRedisKeyPrefix,
+    registration: {
+        capacity: config.rateLimitRegisterCapacity,
+        refillRatePerSecond: config.rateLimitRegisterRefillRatePerSecond,
+    },
+    scheduleReads: {
+        capacity: config.rateLimitScheduleReadCapacity,
+        refillRatePerSecond: config.rateLimitScheduleReadRefillRatePerSecond,
+    },
+    executionHistoryReads: {
+        capacity: config.rateLimitExecutionHistoryCapacity,
+        refillRatePerSecond: config.rateLimitExecutionHistoryRefillRatePerSecond,
+    },
+    registrationConcurrency: config.rateLimitRegisterConcurrency,
+});
 
 router.use((req, res, next) => {
     const startedAt = process.hrtime.bigint();
@@ -55,8 +79,37 @@ router.use((req, res, next) => {
 
 
 // Register a schedule with recipient data
-router.post("/schedules", async (req: Request, res: Response) => {
+router.post(
+    "/schedules",
+    rateLimitService.rateLimit({
+        policyName: "register",
+        resolveKey: (req) => {
+            const wallet = typeof req.body?.vaultEmployer === "string" ? req.body.vaultEmployer.trim() : "";
+            return wallet ? buildWalletKey("register", wallet) : buildIpKey("register", req);
+        },
+    }),
+    rateLimitService.registrationConcurrency.bind(rateLimitService),
+    async (req: Request, res: Response) => {
     try {
+        const payload = req.body as Partial<RegisterSchedulePayload>;
+        if (hasOversizedRecipientSet(payload, 1000)) {
+            return res.status(400).json({
+                error: "recipient count exceeds the current maximum",
+            });
+        }
+
+        if (isComparableRegistrationPayload(payload) && payload.schedulePda) {
+            const existing = await recipientStore.get(payload.schedulePda);
+            if (existing && isSameRegistrationPayload(toComparablePayload(existing), payload)) {
+                return res.json({
+                    success: true,
+                    schedulePda: existing.schedulePda,
+                    merkleRoot: existing.merkleRoot,
+                    alreadyRegistered: true,
+                });
+            }
+        }
+
         const validated = await validateScheduleRegistration(req.body as RegisterScheduleRequest);
 
         const data: ScheduleRecipientData = {
@@ -100,7 +153,10 @@ router.post("/schedules", async (req: Request, res: Response) => {
 });
 
 // Get recipient data for a schedule
-router.get("/schedules/:schedulePda", async (req: Request, res: Response) => {
+router.get(
+    "/schedules/:schedulePda",
+    rateLimitService.rateLimit({ policyName: "schedule-read" }),
+    async (req: Request, res: Response) => {
     try {
         const { schedulePda } = req.params;
         const data = await recipientStore.get(schedulePda);
@@ -125,7 +181,10 @@ router.get("/schedules/:schedulePda", async (req: Request, res: Response) => {
     }
 });
 
-router.get("/schedules/:schedulePda/executions", async (req: Request, res: Response) => {
+router.get(
+    "/schedules/:schedulePda/executions",
+    rateLimitService.rateLimit({ policyName: "execution-history-read" }),
+    async (req: Request, res: Response) => {
     try {
         const { schedulePda } = req.params;
         const rawLimit = Number.parseInt(String(req.query.limit ?? "10"), 10);
@@ -169,9 +228,53 @@ router.get("/health", async (_req: Request, res: Response) => {
     }
 });
 
-router.get("/metrics", async (_req: Request, res: Response) => {
+router.get("/metrics", async (req: Request, res: Response) => {
+    if (!config.metricsEnabled) {
+        return res.status(404).end();
+    }
+
+    if (!config.metricsPublic) {
+        const authorization = req.headers.authorization;
+        if (!config.metricsAuthToken || authorization !== `Bearer ${config.metricsAuthToken}`) {
+            return res.status(403).json({ error: "Forbidden" });
+        }
+    }
+
     res.set("Content-Type", metricsRegistry.contentType);
     res.send(await metricsRegistry.metrics());
 });
 
+function toComparablePayload(data: ScheduleRecipientData): RegisterSchedulePayload {
+    return {
+        schedulePda: data.schedulePda,
+        scheduleId: data.scheduleId,
+        vaultEmployer: data.vaultEmployer,
+        tokenMint: data.tokenMint,
+        recipients: data.recipients.map((recipient) => ({
+            address: recipient.address.toBase58(),
+            amount: recipient.amount.toString(),
+        })),
+    };
+}
+
+function isComparableRegistrationPayload(payload: Partial<RegisterSchedulePayload>): payload is RegisterSchedulePayload {
+    return (
+        typeof payload.schedulePda === "string" &&
+        Array.isArray(payload.scheduleId) &&
+        typeof payload.vaultEmployer === "string" &&
+        typeof payload.tokenMint === "string" &&
+        Array.isArray(payload.recipients) &&
+        payload.recipients.every(
+            (recipient) =>
+                recipient &&
+                typeof recipient.address === "string" &&
+                typeof recipient.amount === "string"
+        )
+    );
+}
+
 export default router;
+
+export async function shutdownApiServices() {
+    await rateLimitService.shutdown();
+}
