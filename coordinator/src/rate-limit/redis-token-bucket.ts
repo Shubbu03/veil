@@ -1,36 +1,28 @@
-import { createClient } from "redis";
-import { createLogger } from "../logger";
-import { REDIS_TOKEN_BUCKET_SCRIPT } from "./redis-token-bucket-script";
 import { RateLimitPolicyName, TokenBucketDecision, TokenBucketPolicy } from "./types";
-
-const logger = createLogger("rate-limit-redis");
+import { RateLimitRedisClient } from "./redis-client";
 
 export class RedisTokenBucketLimiter {
-    private client: ReturnType<typeof createClient> | null = null;
-    private connectPromise: Promise<ReturnType<typeof createClient>> | null = null;
-
     constructor(
-        private readonly redisUrl: string,
+        private readonly redisClient: RateLimitRedisClient,
         private readonly policyName: RateLimitPolicyName,
         private readonly policy: TokenBucketPolicy,
         private readonly keyPrefix: string
     ) {}
 
     async consume(key: string, cost = 1): Promise<TokenBucketDecision> {
-        const client = await this.getClient();
         const storageKey = `${this.keyPrefix}:${this.policyName}:${key}`;
         const ttlSeconds = this.computeTtlSeconds();
 
-        const rawResult = await client.eval(REDIS_TOKEN_BUCKET_SCRIPT, {
-            keys: [storageKey],
-            arguments: [
+        const rawResult = await this.redisClient.evalTokenBucket(
+            [storageKey],
+            [
                 String(Date.now()),
                 String(this.policy.refillRatePerSecond),
                 String(this.policy.capacity),
                 String(cost),
                 String(ttlSeconds * 1000),
-            ],
-        });
+            ]
+        );
 
         const [allowed, remaining, retryAfterSeconds] = this.parseResult(rawResult);
 
@@ -39,59 +31,6 @@ export class RedisTokenBucketLimiter {
             remaining,
             retryAfterSeconds,
         };
-    }
-
-    async disconnect() {
-        this.connectPromise = null;
-
-        if (!this.client) {
-            return;
-        }
-
-        const activeClient = this.client;
-        this.client = null;
-
-        if (activeClient.isOpen) {
-            await activeClient.quit();
-        }
-    }
-
-    private async getClient(): Promise<ReturnType<typeof createClient>> {
-        if (this.client?.isReady) {
-            return this.client;
-        }
-
-        if (this.connectPromise) {
-            return this.connectPromise;
-        }
-
-        this.connectPromise = this.connect();
-
-        try {
-            const client = await this.connectPromise;
-            this.client = client;
-            return client;
-        } finally {
-            this.connectPromise = null;
-        }
-    }
-
-    private async connect(): Promise<ReturnType<typeof createClient>> {
-        const client = createClient({ url: this.redisUrl });
-
-        client.on("error", (error) => {
-            logger.error({ err: error, policy: this.policyName }, "Redis limiter client error");
-        });
-
-        client.on("end", () => {
-            if (this.client === client) {
-                this.client = null;
-            }
-        });
-
-        await client.connect();
-        logger.info({ policy: this.policyName }, "Redis limiter client connected");
-        return client;
     }
 
     private computeTtlSeconds() {

@@ -7,6 +7,7 @@ import {
 } from "../metrics";
 import { InMemoryConcurrencyLimiter } from "./concurrency";
 import { buildIpKey } from "./keys";
+import { RateLimitRedisClient } from "./redis-client";
 import { RedisTokenBucketLimiter } from "./redis-token-bucket";
 import { InMemoryTokenBucketLimiter } from "./token-bucket";
 import { RateLimitPolicyName, TokenBucketPolicy } from "./types";
@@ -29,6 +30,7 @@ export class RateLimitService {
     private readonly scheduleReadLimiter: InMemoryTokenBucketLimiter;
     private readonly executionHistoryReadLimiter: InMemoryTokenBucketLimiter;
     private readonly registrationConcurrencyLimiter: InMemoryConcurrencyLimiter;
+    private readonly redisClient: RateLimitRedisClient | null;
     private readonly redisLimiters: Partial<Record<RateLimitPolicyName, RedisTokenBucketLimiter>>;
 
     constructor(private readonly config: RateLimitServiceConfig) {
@@ -36,22 +38,23 @@ export class RateLimitService {
         this.scheduleReadLimiter = new InMemoryTokenBucketLimiter(config.scheduleReads);
         this.executionHistoryReadLimiter = new InMemoryTokenBucketLimiter(config.executionHistoryReads);
         this.registrationConcurrencyLimiter = new InMemoryConcurrencyLimiter(config.registrationConcurrency);
-        this.redisLimiters = config.redisUrl
+        this.redisClient = config.redisUrl ? new RateLimitRedisClient(config.redisUrl) : null;
+        this.redisLimiters = this.redisClient
             ? {
                 register: new RedisTokenBucketLimiter(
-                    config.redisUrl,
+                    this.redisClient,
                     "register",
                     config.registration,
                     config.redisKeyPrefix
                 ),
                 "schedule-read": new RedisTokenBucketLimiter(
-                    config.redisUrl,
+                    this.redisClient,
                     "schedule-read",
                     config.scheduleReads,
                     config.redisKeyPrefix
                 ),
                 "execution-history-read": new RedisTokenBucketLimiter(
-                    config.redisUrl,
+                    this.redisClient,
                     "execution-history-read",
                     config.executionHistoryReads,
                     config.redisKeyPrefix
@@ -128,9 +131,7 @@ export class RateLimitService {
     }
 
     async shutdown() {
-        await Promise.all(
-            Object.values(this.redisLimiters).map((limiter) => limiter?.disconnect())
-        );
+        await this.redisClient?.disconnect();
     }
 
     private async handleRateLimit(
