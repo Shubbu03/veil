@@ -125,6 +125,35 @@ router.get("/schedules/:schedulePda", async (req: Request, res: Response) => {
     }
 });
 
+router.get("/schedules/:schedulePda/payload", async (req: Request, res: Response) => {
+    try {
+        const { schedulePda } = req.params;
+        const data = await recipientStore.get(schedulePda);
+
+        if (!data) {
+            return res.status(404).json({ error: "Schedule payload not found" });
+        }
+
+        res.json({
+            schedulePda: data.schedulePda,
+            scheduleId: data.scheduleId,
+            vaultEmployer: data.vaultEmployer,
+            tokenMint: data.tokenMint,
+            recipients: data.recipients.map((recipient) => ({
+                address: recipient.address.toBase58(),
+                amount: recipient.amount.toString(),
+            })),
+            merkleRoot: data.merkleRoot,
+            createdAt: data.createdAt,
+        });
+    } catch (error: any) {
+        logger.error({ err: error, schedulePda: req.params.schedulePda }, "Error fetching schedule payload");
+        res.status(500).json({
+            error: error.message || "Failed to fetch schedule payload",
+        });
+    }
+});
+
 router.get("/schedules/:schedulePda/executions", async (req: Request, res: Response) => {
     try {
         const { schedulePda } = req.params;

@@ -108,6 +108,18 @@ pub struct ScheduleResumed {
 }
 
 #[event]
+pub struct ScheduleUpdated {
+    pub employer: Pubkey,
+    pub schedule: Pubkey,
+    pub reserved_amount: u64,
+    pub per_execution_amount: u64,
+    pub interval_secs: u64,
+    pub next_execution: i64,
+    pub total_recipients: u16,
+    pub timestamp: i64,
+}
+
+#[event]
 pub struct ScheduleDelegated {
     pub schedule: Pubkey,
     pub timestamp: i64,

@@ -28,6 +28,10 @@ Register a schedule with recipient data for execution.
 
 **Endpoint:** `POST /api/schedules`
 
+This endpoint also updates an existing coordinator payload for the same
+`schedulePda`. After editing a schedule on-chain, call this endpoint again with
+the updated recipient list so the coordinator stores the new Merkle payload.
+
 **Request:**
 
 ```json
@@ -81,9 +85,9 @@ curl -X POST http://localhost:3001/api/schedules \
   }'
 ```
 
-## Get Schedule
+## Get Schedule Summary
 
-Get schedule recipient data.
+Get coordinator registration summary for a schedule.
 
 **Endpoint:** `GET /api/schedules/:schedulePda`
 
@@ -94,11 +98,7 @@ Get schedule recipient data.
   "schedulePda": "...",
   "scheduleId": [1, 2, 3, ...],
   "vaultEmployer": "...",
-  "tokenMint": "...",
-  "recipients": [
-    { "address": "...", "amount": "100000" }
-  ],
-  "proofs": [...],
+  "recipientCount": 2,
   "merkleRoot": [1, 2, 3, ...],
   "createdAt": 1234567890
 }
@@ -116,6 +116,71 @@ curl {COORDINATOR_URL}/api/schedules/SchedulePDA...
 curl http://localhost:3001/api/schedules/SchedulePDA...
 ```
 
+## Get Schedule Payload
+
+Get the stored recipient payload for a schedule. The dashboard uses this when
+editing a paused schedule.
+
+**Endpoint:** `GET /api/schedules/:schedulePda/payload`
+
+**Response:**
+
+```json
+{
+  "schedulePda": "...",
+  "scheduleId": [1, 2, 3, ...],
+  "vaultEmployer": "...",
+  "tokenMint": "...",
+  "recipients": [
+    { "address": "...", "amount": "100000" }
+  ],
+  "merkleRoot": [1, 2, 3, ...],
+  "createdAt": 1234567890
+}
+```
+
+**Example:**
+
+```bash
+curl {COORDINATOR_URL}/api/schedules/SchedulePDA.../payload
+```
+
+## Get Execution History
+
+Get recent execution runs and attempts for a schedule.
+
+**Endpoint:** `GET /api/schedules/:schedulePda/executions?limit=10`
+
+`limit` is optional and is clamped between 1 and 25.
+
+**Response:**
+
+```json
+{
+  "schedulePda": "...",
+  "runs": [
+    {
+      "id": 1,
+      "schedulePda": "...",
+      "status": "succeeded",
+      "scheduledFor": 1234567890,
+      "attemptCount": 1,
+      "claimedCount": 2,
+      "alreadyPaidCount": 0,
+      "failedClaims": 0,
+      "attempts": [
+        {
+          "id": 1,
+          "step": "claim",
+          "status": "succeeded",
+          "signature": "..."
+        }
+      ]
+    }
+  ]
+}
+```
+
 ## Health Check
 
 Check coordinator health.
@@ -126,8 +191,10 @@ Check coordinator health.
 
 ```json
 {
-  "status": "ok",
-  "timestamp": 1234567890
+  "status": "healthy",
+  "database": "connected",
+  "timestamp": 1234567890,
+  "schedulesRegistered": 1
 }
 ```
 
