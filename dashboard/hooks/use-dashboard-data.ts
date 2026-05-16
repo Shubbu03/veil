@@ -21,6 +21,7 @@ import {
   fetchWalletTokenBalance,
   isWalletReady,
   toBn,
+  updateScheduleFromRecipients,
 } from "@/lib/veil";
 import { parsePublicKey } from "@/lib/solana";
 
@@ -344,7 +345,7 @@ export function useUpdateScheduleMutation(schedulePda: string) {
         throw new Error("Connect a wallet first.");
       }
 
-      return client.updateScheduleFromRecipients({
+      return updateScheduleFromRecipients(client, {
         schedulePda: parsePublicKey(schedulePda),
         intervalSecs: input.intervalSecs,
         reservedAmount: toBn(input.reservedAmountRaw),

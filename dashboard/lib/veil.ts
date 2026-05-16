@@ -7,6 +7,8 @@ import { getAccount, getAssociatedTokenAddress, getMint } from "@solana/spl-toke
 import {
   ScheduleStatus,
   VeilClient,
+  buildMerkleTree,
+  type Recipient,
   type ScheduleAccount,
   type VaultAccount,
   type VeilConfig,
@@ -258,4 +260,43 @@ export function isWalletReady(wallet: AnchorWallet | undefined): wallet is Ancho
 
 export function toBn(value: bigint) {
   return new BN(value.toString());
+}
+
+export async function updateScheduleFromRecipients(
+  client: VeilClient,
+  input: {
+    schedulePda: PublicKey;
+    intervalSecs: number;
+    reservedAmount: BN;
+    recipients: Recipient[];
+  },
+) {
+  const { root } = buildMerkleTree(input.recipients);
+  const perExecutionAmount = sumRecipientAmounts(input.recipients);
+  const signature = await client.updateSchedule(input.schedulePda, {
+    intervalSecs: input.intervalSecs,
+    reservedAmount: input.reservedAmount,
+    perExecutionAmount,
+    merkleRoot: Array.from(root),
+    totalRecipients: input.recipients.length,
+  });
+
+  return {
+    signature,
+    merkleRoot: Array.from(root),
+  };
+}
+
+function sumRecipientAmounts(recipients: Recipient[]) {
+  let total = 0n;
+
+  for (const recipient of recipients) {
+    if (recipient.amount <= 0n) {
+      throw new Error("recipient amounts must be greater than 0");
+    }
+
+    total += recipient.amount;
+  }
+
+  return toBn(total);
 }
