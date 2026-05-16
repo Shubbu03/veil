@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAnchorWallet } from "@solana/wallet-adapter-react";
+import { useAnchorWallet, useWallet } from "@solana/wallet-adapter-react";
 import {
   getCoordinatorExecutionHistory,
   getCoordinatorHealth,
@@ -28,7 +28,8 @@ const queryKeys = {
   config: ["veil", "config"] as const,
   coordinatorHealth: ["coordinator", "health"] as const,
   coordinatorSchedule: (schedulePda: string) => ["coordinator", "schedule", schedulePda] as const,
-  coordinatorSchedulePayload: (schedulePda: string) => ["coordinator", "schedule-payload", schedulePda] as const,
+  coordinatorSchedulePayload: (schedulePda: string, wallet: string | undefined) =>
+    ["coordinator", "schedule-payload", schedulePda, wallet] as const,
   coordinatorExecutionHistory: (schedulePda: string, limit: number) => ["coordinator", "execution-history", schedulePda, limit] as const,
   vaults: (employer: string | undefined) => ["veil", "vaults", employer] as const,
   vault: (employer: string | undefined, mint: string) => ["veil", "vault", employer, mint] as const,
@@ -72,10 +73,25 @@ export function useCoordinatorScheduleQuery(schedulePda: string) {
 }
 
 export function useCoordinatorSchedulePayloadQuery(schedulePda: string) {
+  const { publicKey, signMessage } = useWallet();
+
   return useQuery({
-    queryKey: queryKeys.coordinatorSchedulePayload(schedulePda),
-    queryFn: () => getCoordinatorSchedulePayload(schedulePda),
-    enabled: Boolean(dashboardEnv.coordinatorUrl && schedulePda),
+    queryKey: queryKeys.coordinatorSchedulePayload(schedulePda, publicKey?.toBase58()),
+    queryFn: () => {
+      if (!publicKey || !signMessage) {
+        throw new Error("Wallet message signing is required to access the stored recipient payload.");
+      }
+
+      return getCoordinatorSchedulePayload(schedulePda, {
+        walletAddress: publicKey.toBase58(),
+        signMessage,
+      });
+    },
+    enabled: Boolean(dashboardEnv.coordinatorUrl && schedulePda && publicKey && signMessage),
+    retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 
@@ -344,7 +360,7 @@ export function useUpdateScheduleMutation(schedulePda: string) {
         queryClient.invalidateQueries({ queryKey: queryKeys.schedules(wallet?.publicKey?.toBase58()) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.vaults(wallet?.publicKey?.toBase58()) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.coordinatorSchedule(schedulePda) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.coordinatorSchedulePayload(schedulePda) }),
+        queryClient.invalidateQueries({ queryKey: ["coordinator", "schedule-payload", schedulePda] }),
       ]);
     },
   });
@@ -358,7 +374,7 @@ export function useRegisterScheduleMutation(schedulePda: string) {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.coordinatorSchedule(schedulePda) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.coordinatorSchedulePayload(schedulePda) }),
+        queryClient.invalidateQueries({ queryKey: ["coordinator", "schedule-payload", schedulePda] }),
         queryClient.invalidateQueries({ queryKey: queryKeys.coordinatorHealth }),
       ]);
     },

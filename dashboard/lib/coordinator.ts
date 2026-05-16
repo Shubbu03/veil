@@ -64,6 +64,11 @@ export interface CoordinatorExecutionHistory {
   runs: CoordinatorExecutionRun[];
 }
 
+export interface CoordinatorPayloadAccess {
+  walletAddress: string;
+  signMessage: (message: Uint8Array) => Promise<Uint8Array>;
+}
+
 export interface CoordinatorRegistrationPayload {
   schedulePda: string;
   scheduleId: number[];
@@ -105,13 +110,25 @@ export async function getCoordinatorSchedule(schedulePda: string) {
   }
 }
 
-export async function getCoordinatorSchedulePayload(schedulePda: string) {
+export async function getCoordinatorSchedulePayload(
+  schedulePda: string,
+  auth: CoordinatorPayloadAccess,
+) {
   if (!coordinatorApi) {
     return null;
   }
 
   try {
-    const response = await coordinatorApi.get<CoordinatorSchedulePayload>(`/schedules/${schedulePda}/payload`);
+    const timestampMs = Date.now();
+    const message = buildSchedulePayloadAccessMessage(schedulePda, auth.walletAddress, timestampMs);
+    const signature = await auth.signMessage(message);
+    const response = await coordinatorApi.get<CoordinatorSchedulePayload>(`/schedules/${schedulePda}/payload`, {
+      headers: {
+        "x-veil-wallet": auth.walletAddress,
+        "x-veil-timestamp": String(timestampMs),
+        "x-veil-signature": bytesToBase64(signature),
+      },
+    });
     return response.data;
   } catch (error: unknown) {
     if (isNotFoundError(error)) {
@@ -148,4 +165,28 @@ function isNotFoundError(error: unknown): error is { response?: { status?: numbe
   }
 
   return (error as { response?: { status?: number } }).response?.status === 404;
+}
+
+function buildSchedulePayloadAccessMessage(schedulePda: string, walletAddress: string, timestampMs: number) {
+  return new TextEncoder().encode(
+    [
+      "Veil schedule payload access",
+      `wallet:${walletAddress}`,
+      `schedule:${schedulePda}`,
+      `timestamp:${timestampMs}`,
+    ].join("\n"),
+  );
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  if (typeof window === "undefined") {
+    return Buffer.from(bytes).toString("base64");
+  }
+
+  let binary = "";
+  for (const value of bytes) {
+    binary += String.fromCharCode(value);
+  }
+
+  return window.btoa(binary);
 }

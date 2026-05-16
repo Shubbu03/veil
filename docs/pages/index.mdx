@@ -1,35 +1,37 @@
 # Veil
 
-**Privacy-preserving payment protocol for Solana**
+**Privacy-preserving recurring payouts on Solana**
 
-Veil enables private, scheduled payments where recipient lists and amounts are hidden using Merkle trees and executed privately in TEE (Trusted Execution Environment) via [MagicBlock Ephemeral Rollups](https://docs.magicblock.gg/pages/ephemeral-rollups-ers/how-to-guide/quickstart).
+Veil enables recurring token payouts where the recipient set, per-recipient amounts, and Merkle proofs stay off-chain while settlement state remains verifiable on Solana via [MagicBlock Ephemeral Rollups](https://docs.magicblock.gg/pages/ephemeral-rollups-ers/how-to-guide/quickstart).
 
 ---
 
 ## Why Veil?
 
-On-chain payments on Solana are fully transparent — anyone can see who gets paid, how much, and when. For businesses running payroll, subscription services, or recurring payments, this lack of privacy is a dealbreaker.
+On-chain transfers are transparent by default. That is useful for settlement, but many payroll and payout flows do not want to publish the full recipient mapping on-chain.
 
 **Veil solves this** by:
-- **Hiding recipient lists** - Only Merkle roots stored on-chain
-- **Private execution** - Claims executed in TEE via MagicBlock ER
-- **Scheduled payments** - Recurring payments with configurable intervals
-- **On-chain settlement** - Final state committed back to Solana
+
+- **hiding recipient mapping** - only Merkle roots and schedule totals are committed on-chain
+- **running private execution** - claims execute in TEE via MagicBlock ER
+- **supporting recurring payouts** - schedules with configurable cadence and reserved balances
+- **shipping operational tooling** - SDK, coordinator, docs, and employer dashboard
 
 ---
 
 ## Key Features
 
--  **Private Recipient Lists** - Merkle tree-based privacy
--  **Scheduled Payments** - Recurring payments with configurable intervals
--  **TEE Execution** - Private execution via MagicBlock Ephemeral Rollups
--  **On-Chain Settlement** - Final state committed to Solana
+- **Private recipient lists** - Merkle tree-based recipient privacy
+- **Scheduled payments** - recurring payouts with configurable intervals
+- **TEE execution** - private execution via MagicBlock ER
+- **On-chain settlement** - final state committed to Solana
+- **Employer dashboard** - vault management, schedule creation, and execution history
+- **Bulk recipient import** - CSV and Excel uploads in the dashboard
+- **Saved templates** - reuse local schedule drafts per wallet in the dashboard
 
 ---
 
 ## Quick Start
-
-Get started in 5 minutes:
 
 import { Tabs } from 'nextra/components'
 
@@ -58,26 +60,26 @@ bun add @veil-dev/sdk
 
 ```typescript
 import { VeilClient } from "@veil-dev/sdk";
-import { Connection, Keypair } from "@solana/web3.js";
-import { Wallet } from "@coral-xyz/anchor";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { Wallet, BN } from "@coral-xyz/anchor";
 
 const connection = new Connection("https://api.devnet.solana.com");
+const keypair = Keypair.fromSecretKey(/* your secret key */);
 const wallet = new Wallet(keypair);
-
+const tokenMint = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 const client = new VeilClient({ connection, wallet });
 
-// Create vault
 await client.initVault(tokenMint);
 
-// Create payment schedule
 await client.createScheduleFromRecipients({
+  tokenMint,
   recipients: [
     { address: recipient1, amount: 100_000n },
     { address: recipient2, amount: 200_000n },
   ],
-  intervalSecs: 86400, // Daily
+  intervalSecs: 86400,
   reservedAmount: new BN(10_000_000),
-  perExecutionAmount: new BN(500_000),
+  perExecutionAmount: new BN(300_000),
 });
 ```
 
@@ -89,18 +91,18 @@ await client.createScheduleFromRecipients({
 
 ```
 ┌─────────────────────┐
-│      Solana         │  ← Settlement layer (on-chain)
+│      Solana         │  ← Settlement layer
 │    Base Layer       │  ← Vaults, schedules, Merkle roots
 └─────────────────────┘
           ↓
 ┌─────────────────────┐
-│     ER Layer        │  ← Execution (private in TEE)
-│      (TEE)          │  ← Claim payments, hide recipients
+│     ER Layer        │  ← Private execution in TEE
+│      (TEE)          │
 └─────────────────────┘
           ↓
 ┌─────────────────────┐
-│    Coordinator      │  ← Automation service
-│     (Server)        │  ← Monitors, delegates, executes
+│    Coordinator      │  ← Automation + off-chain proofs
+│     (Server)        │
 └─────────────────────┘
 ```
 
@@ -110,20 +112,19 @@ await client.createScheduleFromRecipients({
 
 ## Use Cases
 
-- **Payroll** - Private employee payments
-- **Subscriptions** - Recurring subscription payments
-- **Vendor Payments** - Hide vendor relationships
-- **Token Vesting** - Private token distribution
-- **Dividends** - Private dividend payments
+- **Payroll** - recurring employee payouts
+- **Vendor payments** - hide supplier relationships
+- **Subscriptions** - recurring settlements without publishing the whole recipient set
+- **Token distributions** - private recipient batches
 
 ---
 
 ## Next Steps
 
-- [Quick Start Guide](/getting-started/quick-start) - Get up and running in 5 minutes
-- [SDK Reference](/sdk/installation) - Complete API documentation
-- [Architecture Overview](/getting-started/architecture) - Understand how Veil works
-- [Examples](/guides/first-schedule) - Step-by-step tutorials
+- [Quick Start Guide](/getting-started/quick-start)
+- [SDK Reference](/sdk/installation)
+- [Architecture Overview](/getting-started/architecture)
+- [Examples](/guides/first-schedule)
 
 ---
 

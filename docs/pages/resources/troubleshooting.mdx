@@ -6,41 +6,39 @@ Common issues and solutions.
 
 ### "Vault not found"
 
-**Problem:** Trying to use vault that doesn't exist.
+**Problem:** Trying to use a vault that does not exist for the selected mint.
 
 **Solution:**
+
 ```typescript
-// Create vault first
 await client.initVault(tokenMint);
 ```
 
 ### "Insufficient funds"
 
-**Problem:** Not enough balance for operation.
+**Problem:** Not enough available balance for the operation.
 
 **Solution:**
+
 ```typescript
-// Check vault balance
-const vault = await client.getVault();
+const vault = await client.getVault(tokenMint);
 console.log("Available:", vault?.available.toString());
 console.log("Reserved:", vault?.reserved.toString());
 
-// Deposit more if needed
 await client.deposit(amount, tokenMint);
 ```
 
 ### "Schedule not active"
 
-**Problem:** Trying to execute paused/cancelled schedule.
+**Problem:** Trying to act on a paused or cancelled schedule.
 
 **Solution:**
+
 ```typescript
-// Check schedule status
 const schedule = await client.getSchedule(schedulePda);
 console.log("Status:", schedule?.status);
 
-// Resume if paused
-if (schedule?.status === "paused") {
+if (schedule?.status === "Paused") {
   await client.pauseSchedule(schedulePda, false);
 }
 ```
@@ -49,123 +47,116 @@ if (schedule?.status === "paused") {
 
 ### "ECONNREFUSED" when registering
 
-**Problem:** Coordinator not running.
+**Problem:** Coordinator is not running or not reachable.
 
 **Solution:**
+
 ```bash
 cd coordinator
-yarn dev
+npm run dev
 ```
+
+### "429 Too Many Requests"
+
+**Problem:** The coordinator’s rate limiter rejected the request.
+
+**Solution:**
+
+- back off and retry after the indicated delay
+- avoid repeatedly resubmitting the same registration payload
+- if you operate the coordinator, review the configured rate-limit budgets
 
 ### "Database connection error"
 
-**Problem:** PostgreSQL not configured or running.
+**Problem:** PostgreSQL is not configured correctly or is unavailable.
 
 **Solution:**
+
 ```bash
-# Check PostgreSQL is running
 pg_isready
 
-# Create database
-createdb veil_coordinator
-
-# Run migrations
 cd coordinator
-yarn db:generate
-yarn db:migrate
+npm run db:migrate
 ```
 
 ### "ER authority keypair not found"
 
-**Problem:** ER authority keypair missing.
+**Problem:** The coordinator cannot load the ER authority signer.
 
 **Solution:**
-```bash
-# Generate keypair
-solana-keygen new -o er-authority-keypair.json
 
-# Update .env
-ER_AUTHORITY_KEYPAIR_PATH=./er-authority-keypair.json
+```bash
+solana-keygen new -o er-authority-keypair.json
 ```
+
+Then point the coordinator at the file or provide `ER_AUTHORITY_KEYPAIR_JSON` / `ER_AUTHORITY_KEYPAIR_B64`.
 
 ## Transaction Issues
 
-### Transaction fails silently
-
-**Problem:** Transaction simulation failed.
-
-**Solution:**
-- Check wallet has SOL for fees
-- Verify program is deployed
-- Check RPC connection
-
 ### "Blockhash not found"
 
-**Problem:** Transaction expired.
+**Problem:** The transaction expired before confirmation.
 
-**Solution:**
-- Retry transaction
-- Get fresh blockhash
+**Solution:** Retry the transaction so the wallet signs with a fresh blockhash.
 
 ### "Insufficient funds for fees"
 
-**Problem:** Wallet doesn't have SOL.
+**Problem:** The wallet does not have enough SOL for transaction fees.
 
 **Solution:**
-```bash
-# Airdrop on devnet
-solana airdrop 2
 
-# Or transfer SOL to wallet
+```bash
+solana airdrop 2
 ```
 
 ## Program Issues
 
 ### "Program not found"
 
-**Problem:** Program not deployed or wrong program ID.
+**Problem:** Wrong program ID or missing deployment.
 
 **Solution:**
-- Verify program is deployed
-- Check program ID matches
-- Redeploy if needed
+
+- verify the deployed program ID
+- verify the SDK / app is pointed at the correct cluster
+- redeploy if needed
 
 ### "Invalid account"
 
-**Problem:** Wrong account passed to instruction.
+**Problem:** A PDA or account owner does not match what the instruction expects.
 
 **Solution:**
-- Verify PDA derivation
-- Check account ownership
-- Use SDK helpers for PDAs
 
-## Merkle Tree Issues
+- derive PDAs with SDK helpers
+- make sure vault PDAs include both employer and token mint
+- make sure schedule PDAs are derived from the vault PDA and `scheduleId`
+
+## Merkle Issues
 
 ### "Invalid Merkle proof"
 
-**Problem:** Proof doesn't match root.
+**Problem:** The provided proof does not match the stored root.
 
 **Solution:**
-```typescript
-// Rebuild tree with same recipients
-const { root, proofs } = buildMerkleTree(recipients);
 
-// Verify proof
-const isValid = verifyProof(leaf, proof, leafIndex, root);
+```typescript
+const { root, proofs } = buildMerkleTree(recipients);
 ```
+
+Verify you rebuilt the tree from the exact same ordered recipient list.
 
 ### "Recipient not found"
 
-**Problem:** Recipient not in Merkle tree.
+**Problem:** The address is not part of the original schedule payload.
 
 **Solution:**
-- Verify recipient is in original list
-- Check address matches exactly
-- Rebuild tree if recipients changed
+
+- confirm the recipient is in the original list
+- confirm the amount matches exactly
+- rebuild proofs from the same ordered list used during registration
 
 ## Getting Help
 
-- Check [FAQ](/resources/faq) for common questions
-- Review [SDK Reference](/sdk/installation) for API details
-- Open an issue on [GitHub](https://github.com/Shubbu03/veil)
-
+- [FAQ](/resources/faq)
+- [SDK Reference](/sdk/installation)
+- [GitHub Issues](https://github.com/Shubbu03/veil)

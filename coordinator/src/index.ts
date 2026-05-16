@@ -4,6 +4,7 @@ import { Wallet } from "@coral-xyz/anchor";
 import { config } from "./config";
 import { startScheduler, stopScheduler } from "./scheduler";
 import apiRouter from "./api";
+import { shutdownApiServices } from "./api";
 import { db, queryClient } from "./db";
 import { sql } from "drizzle-orm";
 import { createLogger } from "./logger";
@@ -66,7 +67,7 @@ async function main() {
 
     const app = express();
     app.use(applyCors);
-    app.use(express.json());
+    app.use(express.json({ limit: config.jsonBodyLimit }));
     app.use("/api", apiRouter);
 
     app.get("/", (_req, res) => {
@@ -82,6 +83,7 @@ async function main() {
     process.on("SIGINT", async () => {
         logger.info({ signal: "SIGINT" }, "Shutting down");
         stopScheduler();
+        await shutdownApiServices();
 
         // Close database connection gracefully
         try {
@@ -100,6 +102,7 @@ async function main() {
     process.on("SIGTERM", async () => {
         logger.info({ signal: "SIGTERM" }, "Shutting down");
         stopScheduler();
+        await shutdownApiServices();
 
         try {
             await queryClient.end();

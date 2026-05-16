@@ -11,61 +11,66 @@ pub struct VeilConfig {
     pub er_authority: Pubkey,
     pub governance: Pubkey,
     pub paused: bool,
-    pub allowed_mint: Pubkey,
+    pub whitelist_enabled: bool,
     pub max_recipients: u16,
+    pub allowed_mints: Vec<Pubkey>,
     pub batch_timeout_secs: u64,
 }
 ```
 
 **PDA:** `["veil_config"]`
 
+**Notes:**
+
+- `allowed_mints` is capped at 16 entries
+- when `whitelist_enabled` is `false`, mint restriction is effectively off
+
 ## VaultAccount
 
-Vault account holding tokens.
+Token-specific vault balance for an employer.
 
 ```rust
 pub struct VaultAccount {
     pub employer: Pubkey,
+    pub vault_ata: Pubkey,
     pub token_mint: Pubkey,
     pub available: u64,
     pub reserved: u64,
-    pub vault_ata: Pubkey,
     pub bump: u8,
 }
 ```
 
-**PDA:** `["vault", employer]`
+**PDA:** `["vault", employer, token_mint]`
 
 ## ScheduleAccount
 
-Payment schedule account.
+Recurring payout schedule state.
 
 ```rust
 pub struct ScheduleAccount {
     pub employer: Pubkey,
     pub vault: Pubkey,
-    pub schedule_id: [u8; 32],
     pub status: ScheduleStatus,
     pub interval_secs: u64,
+    pub next_execution: u64,
     pub reserved_amount: u64,
     pub per_execution_amount: u64,
+    pub er_job_id: [u8; 32],
     pub merkle_root: [u8; 32],
     pub total_recipients: u16,
-    pub next_execution: u64,
-    pub last_executed_batch: u64,
     pub paid_count: u16,
     pub paid_bitmap: [u8; 128],
+    pub last_executed_batch: u64,
     pub batch_start_time: u64,
-    pub er_job_id: [u8; 32],
     pub bump: u8,
 }
 ```
 
 **PDA:** `["schedule", vault, schedule_id]`
 
-## ScheduleStatus
+**Important:** `schedule_id` is used in PDA derivation but is not stored as a field in `ScheduleAccount`.
 
-Schedule status enum.
+## ScheduleStatus
 
 ```rust
 pub enum ScheduleStatus {

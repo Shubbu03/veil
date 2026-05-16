@@ -37,6 +37,33 @@ function parseClaimExecutionLayer(value: string | undefined): "solana" | "er" {
     return value?.trim().toLowerCase() === "er" ? "er" : "solana";
 }
 
+function parseBoolean(value: string | undefined, fallback: boolean): boolean {
+    const normalized = value?.trim().toLowerCase();
+    if (!normalized) {
+        return fallback;
+    }
+
+    if (["1", "true", "yes", "on"].includes(normalized)) {
+        return true;
+    }
+
+    if (["0", "false", "no", "off"].includes(normalized)) {
+        return false;
+    }
+
+    return fallback;
+}
+
+function parseInteger(value: string | undefined, fallback: number): number {
+    const parsed = Number.parseInt(value ?? "", 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseNumber(value: string | undefined, fallback: number): number {
+    const parsed = Number(value ?? "");
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function loadKeypair(keypairPath: string): Keypair {
     const resolved = path.resolve(keypairPath);
     if (!fs.existsSync(resolved)) {
@@ -108,14 +135,41 @@ export const config = {
         return loadKeypair(keypairPath);
     },
 
-    port: parseInt(process.env.PORT || "3001", 10),
+    port: parseInteger(process.env.PORT, 3001),
     corsAllowedOrigins: parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS),
-    pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS || "60000", 10),
-    maxExecutionAttempts: parseInt(process.env.MAX_EXECUTION_ATTEMPTS || "5", 10),
-    retryBaseDelayMs: parseInt(process.env.RETRY_BASE_DELAY_MS || "30000", 10),
-    retryMaxDelayMs: parseInt(process.env.RETRY_MAX_DELAY_MS || "7200000", 10),
-    maxRunnableExecutionsPerPoll: parseInt(
-        process.env.MAX_RUNNABLE_EXECUTIONS_PER_POLL || "10",
+    pollIntervalMs: parseInteger(process.env.POLL_INTERVAL_MS, 60000),
+    maxExecutionAttempts: parseInteger(process.env.MAX_EXECUTION_ATTEMPTS, 5),
+    retryBaseDelayMs: parseInteger(process.env.RETRY_BASE_DELAY_MS, 30000),
+    retryMaxDelayMs: parseInteger(process.env.RETRY_MAX_DELAY_MS, 7200000),
+    maxRunnableExecutionsPerPoll: parseInteger(
+        process.env.MAX_RUNNABLE_EXECUTIONS_PER_POLL,
         10
+    ),
+    jsonBodyLimit: process.env.API_JSON_LIMIT || "1mb",
+    metricsEnabled: parseBoolean(process.env.METRICS_ENABLED, true),
+    metricsPublic: parseBoolean(process.env.METRICS_PUBLIC, false),
+    metricsAuthToken: process.env.METRICS_AUTH_TOKEN?.trim() || "",
+    rateLimitEnabled: parseBoolean(process.env.RATE_LIMIT_ENABLED, true),
+    rateLimitDryRun: parseBoolean(process.env.RATE_LIMIT_DRY_RUN, false),
+    rateLimitRedisUrl: process.env.RATE_LIMIT_REDIS_URL?.trim() || "",
+    rateLimitRedisKeyPrefix: process.env.RATE_LIMIT_REDIS_KEY_PREFIX?.trim() || "veil:rate-limit",
+    rateLimitRegisterCapacity: parseInteger(process.env.RATE_LIMIT_REGISTER_CAPACITY, 5),
+    rateLimitRegisterRefillRatePerSecond: parseNumber(
+        process.env.RATE_LIMIT_REGISTER_REFILL_RATE_PER_SECOND,
+        1 / 600
+    ),
+    rateLimitRegisterConcurrency: parseInteger(process.env.RATE_LIMIT_REGISTER_CONCURRENCY, 3),
+    rateLimitScheduleReadCapacity: parseInteger(process.env.RATE_LIMIT_SCHEDULE_READ_CAPACITY, 60),
+    rateLimitScheduleReadRefillRatePerSecond: parseNumber(
+        process.env.RATE_LIMIT_SCHEDULE_READ_REFILL_RATE_PER_SECOND,
+        1
+    ),
+    rateLimitExecutionHistoryCapacity: parseInteger(
+        process.env.RATE_LIMIT_EXECUTION_HISTORY_CAPACITY,
+        30
+    ),
+    rateLimitExecutionHistoryRefillRatePerSecond: parseNumber(
+        process.env.RATE_LIMIT_EXECUTION_HISTORY_REFILL_RATE_PER_SECOND,
+        1
     ),
 } as const;

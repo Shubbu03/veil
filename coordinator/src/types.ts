@@ -12,6 +12,14 @@ export interface ScheduleRecipientData {
     createdAt: number;
 }
 
+export interface RegisterSchedulePayload {
+    schedulePda: string;
+    scheduleId: number[];
+    vaultEmployer: string;
+    tokenMint: string;
+    recipients: Array<{ address: string; amount: string }>;
+}
+
 export type ExecutionRunStatus =
     | "pending"
     | "running"

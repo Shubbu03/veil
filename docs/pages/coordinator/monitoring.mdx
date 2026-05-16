@@ -1,18 +1,18 @@
 # Monitoring
 
-Monitor coordinator health and performance.
+Monitor coordinator health, execution throughput, and abuse-control behavior.
 
 ## Base URL
 
 Replace `{COORDINATOR_URL}` with your coordinator service URL.
 
 **Local Development:**
-```
+```bash
 http://localhost:3001/api
 ```
 
 **Production:**
-```
+```bash
 https://your-coordinator-domain.com/api
 ```
 
@@ -20,96 +20,125 @@ https://your-coordinator-domain.com/api
 
 Check coordinator status:
 
-**Example:**
 ```bash
 curl {COORDINATOR_URL}/api/health
-```
-
-**Local Development Example:**
-```bash
-curl http://localhost:3001/api/health
 ```
 
 **Response:**
 
 ```json
 {
-  "status": "ok",
-  "timestamp": 1234567890
+  "status": "healthy",
+  "database": "connected",
+  "timestamp": 1777500000000,
+  "schedulesRegistered": 4
 }
 ```
 
+When the database is unavailable, the coordinator responds with `503` and an unhealthy payload.
+
 ## Logs
 
-Monitor coordinator logs for execution status:
+Monitor coordinator logs for:
+
+- schedule polling
+- execution run creation
+- stage-level attempts (`delegate`, `claim`, `commit`)
+- retries and exhausted runs
+- schedule registration success / rejection
+- rate-limit decisions
+- Redis limiter connectivity and fallback events
+
+**Development:**
 
 ```bash
-# Development
-yarn dev
-
-# Production
-yarn start
+npm run dev
 ```
 
-**Log Events:**
-- Schedule polling
-- Execution start/completion
-- Errors and retries
-- Database operations
+**Production:**
+
+```bash
+npm run start
+```
 
 ## Database Monitoring
 
-Use Drizzle Studio to inspect database:
+Use Drizzle Studio to inspect the coordinator database:
 
 ```bash
-yarn db:studio
+npm run db:studio
 ```
 
-**Tables:**
-- `schedules` - Registered schedules
-- `execution_history` - Claim execution history (if implemented)
-- `execution_jobs` - Job tracking (if implemented)
+**Current tables:**
 
-## Metrics (Planned)
+- `schedules` - registered schedules, recipient payloads, Merkle proofs
+- `execution_runs` - execution-run state for each scheduled payout window
+- `execution_attempts` - stage-level attempt history
 
-Future metrics endpoint:
+## Metrics
 
-**Endpoint:** `GET /api/metrics`
+The coordinator exports Prometheus metrics at `GET /api/metrics`.
+
+By default this endpoint is protected. If `METRICS_PUBLIC=false`, callers must send:
+
+```bash
+Authorization: Bearer <METRICS_AUTH_TOKEN>
+```
 
 **Example:**
+
 ```bash
-curl {COORDINATOR_URL}/api/metrics
+curl {COORDINATOR_URL}/api/metrics \
+  -H "Authorization: Bearer <METRICS_AUTH_TOKEN>"
 ```
 
-**Local Development Example:**
-```bash
-curl http://localhost:3001/api/metrics
-```
+**Key metrics exposed today:**
 
-**Metrics:**
-- Schedules polled
-- Schedules executed
-- Claims successful/failed
-- Last poll time
+- `veil_scheduler_polls_total`
+- `veil_schedules_detected_due_total`
+- `veil_execution_runs_created_total`
+- `veil_execution_stage_total`
+- `veil_claim_results_total`
+- `veil_api_requests_total`
+- `veil_api_request_duration_seconds`
+- `veil_api_rate_limit_decisions_total`
+- `veil_api_concurrency_limit_decisions_total`
+- `veil_api_rate_limit_backend_events_total`
+
+## Rate-Limit Monitoring
+
+If rate limiting is enabled, watch for:
+
+- repeated `429` responses on `POST /api/schedules`
+- bursts of `limited` outcomes in `veil_api_rate_limit_decisions_total`
+- repeated concurrency limiting on registration requests
+- `memory-fallback` backend events, which indicate Redis is unavailable
+
+In dry-run mode, the coordinator logs what would have been limited without blocking the request.
 
 ## Troubleshooting
 
 ### Coordinator not executing schedules
 
-- Check logs for errors
-- Verify database connection
-- Check ER authority keypair
-- Verify RPC connection
+- check logs for execution-stage failures
+- verify database connectivity
+- verify ER authority keypair loading
+- verify Solana RPC connectivity
+
+### `/api/metrics` returns `403`
+
+- confirm `METRICS_PUBLIC=false` is intentional
+- send `Authorization: Bearer <METRICS_AUTH_TOKEN>`
+- verify `METRICS_AUTH_TOKEN` is set on the deployed service
 
 ### Database errors
 
-- Check `DATABASE_URL` in `.env`
-- Verify PostgreSQL is running
-- Run migrations: `yarn db:migrate`
+- check `DATABASE_URL`
+- verify PostgreSQL is reachable
+- run migrations with `npm run db:migrate`
 
-### ER connection errors
+### Redis limiter errors
 
-- Verify `ER_RPC_URL` is correct
-- Check ER validator address
-- Ensure ER authority keypair exists
-
+- confirm `RATE_LIMIT_REDIS_URL` is valid
+- expect one slower connect if your managed Redis instance was sleeping
+- if Redis is unavailable, registration falls back to in-memory limiting and read routes fail open

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAnchorWallet } from "@solana/wallet-adapter-react";
+import { useAnchorWallet, useWallet } from "@solana/wallet-adapter-react";
 import { ArrowLeft, CaretDown, Info, Trash, UploadSimple } from "phosphor-react";
 import { PublicKey } from "@solana/web3.js";
 import { AppShell } from "@/components/app-shell";
@@ -65,6 +65,7 @@ type FormValues = z.output<typeof formSchema>;
 export function ScheduleEditorScreen({ schedulePda }: { schedulePda: string }) {
   const router = useRouter();
   const wallet = useAnchorWallet();
+  const { signMessage } = useWallet();
   const schedule = useScheduleDetailQuery(schedulePda);
   const payload = useCoordinatorSchedulePayloadQuery(schedulePda);
   const vault = useVaultDetailQuery(schedule.data?.tokenMint?.address ?? "");
@@ -308,6 +309,16 @@ export function ScheduleEditorScreen({ schedulePda }: { schedulePda: string }) {
           <EmptyState
             title="Pause this schedule first"
             description="Editing is only available while a schedule is paused. Pause it from the detail page, then come back here."
+            action={
+              <Button asChild>
+                <Link href={`/schedules/${schedulePda}`}>Back to schedule</Link>
+              </Button>
+            }
+          />
+        ) : !signMessage ? (
+          <EmptyState
+            title="Message signing required"
+            description="Editing uses a signed wallet message to unlock the stored coordinator payload. Switch to a wallet that supports message signing and try again."
             action={
               <Button asChild>
                 <Link href={`/schedules/${schedulePda}`}>Back to schedule</Link>
