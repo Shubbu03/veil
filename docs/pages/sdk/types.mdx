@@ -75,6 +75,18 @@ interface CreateScheduleParams {
 }
 ```
 
+### UpdateScheduleParams
+
+```typescript
+interface UpdateScheduleParams {
+  intervalSecs: number;
+  reservedAmount: BN;
+  perExecutionAmount: BN;
+  merkleRoot: number[];
+  totalRecipients: number;
+}
+```
+
 ### VeilConfig
 
 ```typescript
@@ -147,6 +159,7 @@ import {
   ScheduleStatus,
   Recipient,
   CreateScheduleParams,
+  UpdateScheduleParams,
   VeilConfig,
 } from "@veil-dev/sdk";
 ```

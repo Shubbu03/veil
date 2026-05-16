@@ -22,6 +22,10 @@ Register a schedule with recipient data for execution.
 
 **Endpoint:** `POST /api/schedules`
 
+This endpoint also updates an existing coordinator payload for the same
+`schedulePda`. After editing a schedule on-chain, call this endpoint again with
+the updated recipient list so the coordinator stores the new Merkle payload.
+
 **Request:**
 
 ```json
@@ -81,7 +85,7 @@ curl -X POST {COORDINATOR_URL}/api/schedules \
   }'
 ```
 
-## Get Schedule
+## Get Schedule Summary
 
 Fetch the coordinator-side summary for a registered schedule.
 
@@ -106,6 +110,41 @@ This endpoint intentionally returns summary data only. Recipient addresses, per-
 
 ```bash
 curl {COORDINATOR_URL}/api/schedules/SchedulePDA...
+```
+
+## Get Schedule Payload
+
+Get the stored recipient payload for a schedule. The dashboard uses this when
+editing a paused schedule.
+
+**Endpoint:** `GET /api/schedules/:schedulePda/payload`
+
+This endpoint requires a wallet-signed request from the schedule owner. Send:
+
+- `x-veil-wallet`
+- `x-veil-timestamp`
+- `x-veil-signature`
+
+**Response:**
+
+```json
+{
+  "schedulePda": "...",
+  "scheduleId": [1, 2, 3, "..."],
+  "vaultEmployer": "...",
+  "tokenMint": "...",
+  "recipients": [
+    { "address": "...", "amount": "100000" }
+  ],
+  "merkleRoot": [1, 2, 3, "..."],
+  "createdAt": 1777500000000
+}
+```
+
+**Example:**
+
+```bash
+curl {COORDINATOR_URL}/api/schedules/SchedulePDA.../payload
 ```
 
 ## Get Execution History

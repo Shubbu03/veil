@@ -109,6 +109,44 @@ console.log("Registered:", data);
 
 If you retry the exact same registration payload, the coordinator returns a successful response with `alreadyRegistered: true`.
 
+## Step 7: Edit a Schedule
+
+Schedules can be edited after pausing. After an edit, re-register the updated
+recipient payload with the coordinator, then resume the schedule.
+
+```typescript
+await client.pauseSchedule(schedulePda, true);
+
+const updatedRecipients = [
+  { address: new PublicKey("Recipient1Address..."), amount: 150_000n },
+  { address: new PublicKey("Recipient2Address..."), amount: 250_000n },
+];
+
+await client.updateScheduleFromRecipients({
+  schedulePda,
+  recipients: updatedRecipients,
+  intervalSecs: 86400,
+  reservedAmount: new BN(5_000_000),
+});
+
+await fetch(`${COORDINATOR_URL}/schedules`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    schedulePda: schedulePda.toString(),
+    scheduleId: Array.from(scheduleId),
+    vaultEmployer: wallet.publicKey.toString(),
+    tokenMint: USDC_MINT.toString(),
+    recipients: updatedRecipients.map((recipient) => ({
+      address: recipient.address.toString(),
+      amount: recipient.amount.toString(),
+    })),
+  }),
+});
+
+await client.pauseSchedule(schedulePda, false);
+```
+
 ## Complete Example
 
 ```typescript

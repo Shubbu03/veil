@@ -54,3 +54,11 @@ export interface CreateScheduleParams {
     totalRecipients: number;
     erJobId: number[];
 }
+
+export interface UpdateScheduleParams {
+    intervalSecs: number;
+    reservedAmount: BN;
+    perExecutionAmount: BN;
+    merkleRoot: number[];
+    totalRecipients: number;
+}

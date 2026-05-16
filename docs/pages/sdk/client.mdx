@@ -42,6 +42,8 @@ client.program
 
 - `createSchedule(params: CreateScheduleParams)` - create a schedule from prepared parameters
 - `createScheduleFromRecipients(params)` - build the Merkle root and create the schedule
+- `updateSchedule(schedulePda: PublicKey, params: UpdateScheduleParams)` - update a paused schedule from prepared parameters
+- `updateScheduleFromRecipients(params)` - rebuild the Merkle root and update a paused schedule
 - `pauseSchedule(schedulePda: PublicKey, pause: boolean)` - pause or resume a schedule
 - `cancelSchedule(schedulePda: PublicKey)` - cancel a schedule and release reserved funds
 - `getSchedule(schedulePda: PublicKey)` - fetch schedule state

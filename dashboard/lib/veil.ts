@@ -1,12 +1,15 @@
 "use client";
 
-import { BN } from "@coral-xyz/anchor";
+import { AnchorProvider, BN } from "@coral-xyz/anchor";
 import type { AnchorWallet } from "@solana/wallet-adapter-react";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Buffer } from "buffer";
+import { Connection, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { getAccount, getAssociatedTokenAddress, getMint } from "@solana/spl-token";
 import {
   ScheduleStatus,
   VeilClient,
+  buildMerkleTree,
+  type Recipient,
   type ScheduleAccount,
   type VaultAccount,
   type VeilConfig,
@@ -39,6 +42,7 @@ export interface UiSchedule {
   vault: string;
   tokenMint: MintInfo | null;
   status: ScheduleStatus;
+  intervalSecs: number;
   nextExecutionMs: number;
   reservedAmountRaw: bigint;
   perExecutionAmountRaw: bigint;
@@ -58,6 +62,13 @@ export interface UiWalletTokenBalance {
 }
 
 type RawScheduleStatus = ScheduleStatus | { active?: object; paused?: object; cancelled?: object };
+type RawScheduleAccount = { vault: PublicKey };
+
+const MIN_SCHEDULE_INTERVAL_SECS = 60 * 60;
+const MAX_SCHEDULE_INTERVAL_SECS = 31 * 24 * 60 * 60;
+const MAX_SCHEDULE_RECIPIENTS = 1024;
+const MAX_U64 = (1n << 64n) - 1n;
+const UPDATE_SCHEDULE_DISCRIMINATOR = [121, 160, 17, 111, 16, 230, 228, 70] as const;
 
 export function createVeilClient(connection: Connection, wallet: AnchorWallet) {
   return new VeilClient({
@@ -191,6 +202,7 @@ function toUiSchedule(publicKey: PublicKey, account: ScheduleAccount, mintInfo: 
     vault: account.vault.toBase58(),
     tokenMint: mintInfo,
     status: parseScheduleStatus(account.status as RawScheduleStatus),
+    intervalSecs: Number(account.intervalSecs.toString()),
     nextExecutionMs: Number(account.nextExecution.toString()) * 1000,
     reservedAmountRaw: bnToBigInt(account.reservedAmount),
     perExecutionAmountRaw: bnToBigInt(account.perExecutionAmount),
@@ -256,4 +268,168 @@ export function isWalletReady(wallet: AnchorWallet | undefined): wallet is Ancho
 
 export function toBn(value: bigint) {
   return new BN(value.toString());
+}
+
+export async function updateScheduleFromRecipients(
+  client: VeilClient,
+  input: {
+    schedulePda: PublicKey;
+    intervalSecs: number;
+    reservedAmount: BN;
+    recipients: Recipient[];
+  },
+) {
+  const { root } = buildMerkleTree(input.recipients);
+  const perExecutionAmount = sumRecipientAmounts(input.recipients);
+  validateScheduleUpdate(input, perExecutionAmount, root);
+  const schedule = await fetchRawScheduleAccount(client, input.schedulePda);
+  const signature = await sendUpdateScheduleInstruction(client, {
+    schedulePda: input.schedulePda,
+    vaultPda: schedule.vault,
+    intervalSecs: input.intervalSecs,
+    reservedAmount: input.reservedAmount,
+    perExecutionAmount,
+    merkleRoot: root,
+    totalRecipients: input.recipients.length,
+  });
+
+  return {
+    signature,
+    merkleRoot: Array.from(root),
+  };
+}
+
+async function sendUpdateScheduleInstruction(
+  client: VeilClient,
+  input: {
+    schedulePda: PublicKey;
+    vaultPda: PublicKey;
+    intervalSecs: number;
+    reservedAmount: BN;
+    perExecutionAmount: BN;
+    merkleRoot: Buffer;
+    totalRecipients: number;
+  },
+) {
+  const [configPda] = PublicKey.findProgramAddressSync([new TextEncoder().encode("veil_config")], client.program.programId);
+  const transaction = new Transaction().add(
+    new TransactionInstruction({
+      programId: client.program.programId,
+      keys: [
+        { pubkey: client.wallet.publicKey, isSigner: true, isWritable: true },
+        { pubkey: configPda, isSigner: false, isWritable: false },
+        { pubkey: input.vaultPda, isSigner: false, isWritable: true },
+        { pubkey: input.schedulePda, isSigner: false, isWritable: true },
+      ],
+      data: encodeUpdateScheduleInstruction(input),
+    }),
+  );
+
+  const provider = client.program.provider as AnchorProvider;
+
+  return provider.sendAndConfirm(transaction);
+}
+
+function encodeUpdateScheduleInstruction(input: {
+  intervalSecs: number;
+  reservedAmount: BN;
+  perExecutionAmount: BN;
+  merkleRoot: Buffer;
+  totalRecipients: number;
+}) {
+  const data = Buffer.alloc(8 + 8 + 8 + 8 + 32 + 2);
+  let offset = 0;
+
+  data.set(UPDATE_SCHEDULE_DISCRIMINATOR, offset);
+  offset += 8;
+  data.set(new BN(input.intervalSecs).toArrayLike(Buffer, "le", 8), offset);
+  offset += 8;
+  data.set(input.reservedAmount.toArrayLike(Buffer, "le", 8), offset);
+  offset += 8;
+  data.set(input.perExecutionAmount.toArrayLike(Buffer, "le", 8), offset);
+  offset += 8;
+  data.set(input.merkleRoot, offset);
+  offset += 32;
+  data.writeUInt16LE(input.totalRecipients, offset);
+
+  return data;
+}
+
+async function fetchRawScheduleAccount(client: VeilClient, schedulePda: PublicKey) {
+  try {
+    const accounts = client.program.account as {
+      scheduleAccount?: { fetch: (address: PublicKey) => Promise<RawScheduleAccount> };
+    };
+    const schedule = await accounts.scheduleAccount?.fetch(schedulePda);
+
+    if (!schedule) {
+      throw new Error("schedule account unavailable");
+    }
+
+    return schedule;
+  } catch {
+    throw new Error("schedule not found");
+  }
+}
+
+function validateScheduleUpdate(
+  input: {
+    intervalSecs: number;
+    reservedAmount: BN;
+    recipients: Recipient[];
+  },
+  perExecutionAmount: BN,
+  merkleRoot: Buffer,
+) {
+  if (
+    !Number.isInteger(input.intervalSecs) ||
+    input.intervalSecs < MIN_SCHEDULE_INTERVAL_SECS ||
+    input.intervalSecs > MAX_SCHEDULE_INTERVAL_SECS
+  ) {
+    throw new Error(`intervalSecs must be between ${MIN_SCHEDULE_INTERVAL_SECS} and ${MAX_SCHEDULE_INTERVAL_SECS}`);
+  }
+
+  if (input.recipients.length <= 0 || input.recipients.length > MAX_SCHEDULE_RECIPIENTS) {
+    throw new Error(`recipients must be between 1 and ${MAX_SCHEDULE_RECIPIENTS}`);
+  }
+
+  if (input.reservedAmount.lte(new BN(0))) {
+    throw new Error("reservedAmount must be greater than 0");
+  }
+
+  assertFitsU64(input.reservedAmount, "reservedAmount");
+
+  if (perExecutionAmount.lte(new BN(0))) {
+    throw new Error("perExecutionAmount must be greater than 0");
+  }
+
+  assertFitsU64(perExecutionAmount, "perExecutionAmount");
+
+  if (perExecutionAmount.gt(input.reservedAmount)) {
+    throw new Error("perExecutionAmount cannot exceed reservedAmount");
+  }
+
+  if (merkleRoot.length !== 32) {
+    throw new Error("merkleRoot must be 32 bytes");
+  }
+}
+
+function assertFitsU64(value: BN, name: string) {
+  if (BigInt(value.toString()) > MAX_U64) {
+    throw new Error(`${name} exceeds u64 max`);
+  }
+}
+
+function sumRecipientAmounts(recipients: Recipient[]) {
+  let total = 0n;
+
+  for (const recipient of recipients) {
+    if (recipient.amount <= 0n) {
+      throw new Error("recipient amounts must be greater than 0");
+    }
+
+    total += recipient.amount;
+  }
+
+  return toBn(total);
 }

@@ -91,6 +91,59 @@ await client.pauseSchedule(schedulePda, true);  // pause
 await client.pauseSchedule(schedulePda, false); // resume
 ```
 
+## Update Schedule
+
+Schedules can be edited only while paused. Use this when you need to replace
+recipients, change cadence, or adjust the reserved amount without cancelling and
+recreating the schedule.
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+
+const updatedRecipients = [
+  { address: new PublicKey("recipient1..."), amount: 150_000n },
+  { address: new PublicKey("recipient2..."), amount: 250_000n },
+];
+
+await client.pauseSchedule(schedulePda, true);
+
+const { signature, merkleRoot } = await client.updateScheduleFromRecipients({
+  schedulePda,
+  recipients: updatedRecipients,
+  intervalSecs: 86400,
+  reservedAmount: new BN(8_000_000),
+});
+
+console.log("Schedule updated:", signature);
+console.log("New Merkle root:", merkleRoot);
+
+// Re-register the updated recipient payload with the coordinator before resuming.
+await client.pauseSchedule(schedulePda, false);
+```
+
+`updateScheduleFromRecipients` rebuilds the Merkle root and derives
+`perExecutionAmount` from the sum of recipient amounts.
+
+For manual control:
+
+```typescript
+await client.updateSchedule(schedulePda, {
+  intervalSecs: 86400,
+  reservedAmount: new BN(8_000_000),
+  perExecutionAmount: new BN(400_000),
+  merkleRoot: Array.from(root),
+  totalRecipients: updatedRecipients.length,
+});
+```
+
+**Rules:**
+
+- schedule status must be `Paused`
+- no payout batch can be in progress
+- recipient amount sum must match the per-execution amount
+- `reservedAmount` must cover at least one full execution cycle
+- coordinator registration must be updated after editing so off-chain recipient data matches the new Merkle root
+
 ## Cancel Schedule
 
 Cancelling returns the schedule’s reserved balance to the vault’s available balance.

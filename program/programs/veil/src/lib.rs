@@ -110,6 +110,23 @@ pub mod veil {
         ctx.accounts.pause_schedule(pause)
     }
 
+    pub fn update_schedule(
+        ctx: Context<UpdateSchedule>,
+        interval_secs: u64,
+        reserved_amount: u64,
+        per_execution_amount: u64,
+        merkle_root: [u8; 32],
+        total_recipients: u16,
+    ) -> Result<()> {
+        ctx.accounts.update_schedule(
+            interval_secs,
+            reserved_amount,
+            per_execution_amount,
+            merkle_root,
+            total_recipients,
+        )
+    }
+
     pub fn delegate_schedule(ctx: Context<DelegateSchedule>, schedule_id: [u8; 32]) -> Result<()> {
         ctx.accounts.delegate_schedule(schedule_id)
     }
