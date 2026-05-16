@@ -1279,6 +1279,91 @@
       ]
     },
     {
+      "name": "update_schedule",
+      "discriminator": [
+        121,
+        160,
+        17,
+        111,
+        16,
+        230,
+        228,
+        70
+      ],
+      "accounts": [
+        {
+          "name": "employer",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "vault",
+            "schedule"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  101,
+                  105,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "relations": [
+            "schedule"
+          ]
+        },
+        {
+          "name": "schedule",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "interval_secs",
+          "type": "u64"
+        },
+        {
+          "name": "reserved_amount",
+          "type": "u64"
+        },
+        {
+          "name": "per_execution_amount",
+          "type": "u64"
+        },
+        {
+          "name": "merkle_root",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "total_recipients",
+          "type": "u16"
+        }
+      ]
+    },
+    {
       "name": "process_undelegation",
       "discriminator": [
         196,
