@@ -1279,91 +1279,6 @@
       ]
     },
     {
-      "name": "update_schedule",
-      "discriminator": [
-        121,
-        160,
-        17,
-        111,
-        16,
-        230,
-        228,
-        70
-      ],
-      "accounts": [
-        {
-          "name": "employer",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "vault",
-            "schedule"
-          ]
-        },
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  101,
-                  105,
-                  108,
-                  95,
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "relations": [
-            "schedule"
-          ]
-        },
-        {
-          "name": "schedule",
-          "writable": true
-        }
-      ],
-      "args": [
-        {
-          "name": "interval_secs",
-          "type": "u64"
-        },
-        {
-          "name": "reserved_amount",
-          "type": "u64"
-        },
-        {
-          "name": "per_execution_amount",
-          "type": "u64"
-        },
-        {
-          "name": "merkle_root",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "total_recipients",
-          "type": "u16"
-        }
-      ]
-    },
-    {
       "name": "process_undelegation",
       "discriminator": [
         196,
@@ -1730,6 +1645,91 @@
       ]
     },
     {
+      "name": "update_schedule",
+      "discriminator": [
+        121,
+        160,
+        17,
+        111,
+        16,
+        230,
+        228,
+        70
+      ],
+      "accounts": [
+        {
+          "name": "employer",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "vault",
+            "schedule"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  101,
+                  105,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "relations": [
+            "schedule"
+          ]
+        },
+        {
+          "name": "schedule",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "interval_secs",
+          "type": "u64"
+        },
+        {
+          "name": "reserved_amount",
+          "type": "u64"
+        },
+        {
+          "name": "per_execution_amount",
+          "type": "u64"
+        },
+        {
+          "name": "merkle_root",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "total_recipients",
+          "type": "u16"
+        }
+      ]
+    },
+    {
       "name": "withdraw",
       "discriminator": [
         183,
@@ -2025,6 +2025,19 @@
       ]
     },
     {
+      "name": "ScheduleUpdated",
+      "discriminator": [
+        21,
+        219,
+        240,
+        12,
+        179,
+        107,
+        205,
+        15
+      ]
+    },
+    {
       "name": "StateCommitted",
       "discriminator": [
         71,
@@ -2176,81 +2189,86 @@
     },
     {
       "code": 6014,
+      "name": "ScheduleBatchInProgress",
+      "msg": "Schedule has an in-progress payout batch"
+    },
+    {
+      "code": 6015,
       "name": "InvalidScheduleId",
       "msg": "Invalid schedule ID"
     },
     {
-      "code": 6015,
+      "code": 6016,
       "name": "InvalidScheduleInterval",
       "msg": "Invalid schedule interval"
     },
     {
-      "code": 6016,
+      "code": 6017,
       "name": "InvalidReservedAmount",
       "msg": "Invalid reserved amount"
     },
     {
-      "code": 6017,
+      "code": 6018,
       "name": "InvalidPerExecutionAmount",
       "msg": "Invalid per-execution amount"
     },
     {
-      "code": 6018,
+      "code": 6019,
       "name": "InvalidRecipientsHash",
       "msg": "Invalid recipients hash"
     },
     {
-      "code": 6019,
+      "code": 6020,
       "name": "InvalidAmountsHash",
       "msg": "Invalid amounts hash"
     },
     {
-      "code": 6020,
+      "code": 6021,
       "name": "ExecutionTooEarly",
       "msg": "Execution too early - next execution time not reached"
     },
     {
-      "code": 6021,
+      "code": 6022,
       "name": "ReplayDetected",
       "msg": "Replay detected - batch ID must be greater than last executed"
     },
     {
-      "code": 6022,
+      "code": 6023,
       "name": "RecipientCountMismatch",
       "msg": "Recipient count mismatch"
     },
     {
-      "code": 6023,
+      "code": 6024,
       "name": "InvalidMerkleProof",
       "msg": "Invalid Merkle proof"
     },
     {
-      "code": 6024,
+      "code": 6025,
       "name": "AlreadyPaid",
       "msg": "Recipient already paid"
     },
     {
-      "code": 6025,
+      "code": 6026,
       "name": "InvalidLeafIndex",
       "msg": "Invalid leaf index"
     },
     {
-      "code": 6026,
+      "code": 6027,
       "name": "InvalidBatchTimeout",
       "msg": "Invalid batch timeout - must be between 1 hour and 30 days"
     },
     {
-      "code": 6027,
+      "code": 6028,
       "name": "InvalidMintWhitelist",
       "msg": "Invalid mint whitelist configuration"
     },
     {
-      "code": 6028,
+      "code": 6029,
       "name": "TooManyAllowedMints",
       "msg": "Too many allowed mints configured"
     },
     {
-      "code": 6029,
+      "code": 6030,
       "name": "DuplicateAllowedMint",
       "msg": "Duplicate mint found in whitelist"
     }
@@ -2620,6 +2638,46 @@
           {
             "name": "schedule",
             "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ScheduleUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "employer",
+            "type": "pubkey"
+          },
+          {
+            "name": "schedule",
+            "type": "pubkey"
+          },
+          {
+            "name": "reserved_amount",
+            "type": "u64"
+          },
+          {
+            "name": "per_execution_amount",
+            "type": "u64"
+          },
+          {
+            "name": "interval_secs",
+            "type": "u64"
+          },
+          {
+            "name": "next_execution",
+            "type": "i64"
+          },
+          {
+            "name": "total_recipients",
+            "type": "u16"
           },
           {
             "name": "timestamp",
