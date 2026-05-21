@@ -72,7 +72,7 @@ export function useCoordinatorScheduleQuery(schedulePda: string) {
   });
 }
 
-export function useCoordinatorSchedulePayloadQuery(schedulePda: string) {
+export function useCoordinatorSchedulePayloadQuery(schedulePda: string, enabled = true) {
   const { publicKey, signMessage } = useWallet();
 
   return useQuery({
@@ -87,7 +87,7 @@ export function useCoordinatorSchedulePayloadQuery(schedulePda: string) {
         signMessage,
       });
     },
-    enabled: Boolean(dashboardEnv.coordinatorUrl && schedulePda && publicKey && signMessage),
+    enabled: Boolean(dashboardEnv.coordinatorUrl && schedulePda && publicKey && signMessage && enabled),
     retry: false,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
