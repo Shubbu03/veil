@@ -10,6 +10,13 @@ import { sql } from "drizzle-orm";
 import { createLogger } from "./logger";
 
 const logger = createLogger("index");
+const defaultCorsHeaders = [
+    "Content-Type",
+    "Authorization",
+    "x-veil-wallet",
+    "x-veil-timestamp",
+    "x-veil-signature",
+];
 
 function applyCors(
     req: express.Request,
@@ -27,7 +34,13 @@ function applyCors(
     }
 
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    const requestedHeaders = req.headers["access-control-request-headers"];
+    res.setHeader(
+        "Access-Control-Allow-Headers",
+        typeof requestedHeaders === "string" && requestedHeaders.trim()
+            ? requestedHeaders
+            : defaultCorsHeaders.join(", ")
+    );
 
     if (req.method === "OPTIONS") {
         return res.status(204).end();
