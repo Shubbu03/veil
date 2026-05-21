@@ -135,7 +135,7 @@ export async function getCoordinatorSchedulePayload(
       return null;
     }
 
-    throw error;
+    throw toCoordinatorError(error, "Failed to fetch schedule payload.");
   }
 }
 
@@ -165,6 +165,27 @@ function isNotFoundError(error: unknown): error is { response?: { status?: numbe
   }
 
   return (error as { response?: { status?: number } }).response?.status === 404;
+}
+
+function toCoordinatorError(error: unknown, fallback: string) {
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const response = (error as { response?: { data?: unknown } }).response;
+    if (
+      response &&
+      typeof response.data === "object" &&
+      response.data !== null &&
+      "error" in response.data &&
+      typeof (response.data as { error?: unknown }).error === "string"
+    ) {
+      return new Error((response.data as { error: string }).error);
+    }
+  }
+
+  if (error instanceof Error) {
+    return error;
+  }
+
+  return new Error(fallback);
 }
 
 function buildSchedulePayloadAccessMessage(schedulePda: string, walletAddress: string, timestampMs: number) {

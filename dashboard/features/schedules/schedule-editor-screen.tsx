@@ -67,7 +67,8 @@ export function ScheduleEditorScreen({ schedulePda }: { schedulePda: string }) {
   const wallet = useAnchorWallet();
   const { signMessage } = useWallet();
   const schedule = useScheduleDetailQuery(schedulePda);
-  const payload = useCoordinatorSchedulePayloadQuery(schedulePda);
+  const [payloadRequested, setPayloadRequested] = useState(false);
+  const payload = useCoordinatorSchedulePayloadQuery(schedulePda, payloadRequested);
   const vault = useVaultDetailQuery(schedule.data?.tokenMint?.address ?? "");
   const coordinatorHealth = useCoordinatorHealthQuery();
   const updateMutation = useUpdateScheduleMutation(schedulePda);
@@ -297,7 +298,7 @@ export function ScheduleEditorScreen({ schedulePda }: { schedulePda: string }) {
 
         {!wallet ? (
           <WalletGate />
-        ) : schedule.isLoading || payload.isLoading || vault.isLoading ? (
+        ) : schedule.isLoading || vault.isLoading || (payloadRequested && payload.isLoading) ? (
           <Card>
             <CardContent className="pt-5 text-sm text-muted-foreground">Loading schedule editor…</CardContent>
           </Card>
@@ -323,6 +324,42 @@ export function ScheduleEditorScreen({ schedulePda }: { schedulePda: string }) {
               <Button asChild>
                 <Link href={`/schedules/${schedulePda}`}>Back to schedule</Link>
               </Button>
+            }
+          />
+        ) : !payloadRequested && !payloadData ? (
+          <EmptyState
+            title="Unlock coordinator payload"
+            description="Editing needs the stored recipient list from the coordinator. Confirm a wallet message to load it into the editor."
+            action={
+              <Button
+                onClick={() => {
+                  setPayloadRequested(true);
+                }}
+              >
+                Unlock editor
+              </Button>
+            }
+          />
+        ) : payload.isError ? (
+          <EmptyState
+            title="Could not unlock coordinator payload"
+            description={userFacingError(
+              payload.error,
+              "The coordinator payload could not be loaded right now. Sign again and retry.",
+            )}
+            action={
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={() => {
+                    void payload.refetch();
+                  }}
+                >
+                  Try again
+                </Button>
+                <Button asChild variant="ghost">
+                  <Link href={`/schedules/${schedulePda}`}>Back to schedule</Link>
+                </Button>
+              </div>
             }
           />
         ) : !payloadData ? (

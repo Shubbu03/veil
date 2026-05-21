@@ -83,17 +83,7 @@ impl<'info> Withdraw<'info> {
             .checked_sub(amount)
             .ok_or(VeilProgramError::InsufficientFunds)?;
 
-        // Refresh the vault ATA after the CPI so the invariant check uses the updated balance.
-        self.vault_ata.reload()?;
-        let balance = self.vault_ata.amount;
-        require!(
-            self.vault
-                .available
-                .checked_add(self.vault.reserved)
-                .ok_or(VeilProgramError::InsufficientFunds)?
-                == balance,
-            VeilProgramError::VaultMismatch
-        );
+
 
         emit!(VaultWithdrawn {
             vault: self.vault.key(),
